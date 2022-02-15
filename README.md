@@ -26,7 +26,7 @@ python -m ipykernel install --user --name=OSnet
 
 Import library:
 ```python
-import osnet
+from osnet import osnet
 import xarray as xr
 ```
 
