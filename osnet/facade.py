@@ -1,3 +1,4 @@
+import os
 from joblib import load as jbload
 import glob
 from tensorflow import keras
@@ -137,7 +138,7 @@ class osnet(osnet_proto):
                  name='Gulf-Stream',
                  adjust_mld=True):
         if name == 'Gulf-Stream':
-            self.model_path = pkg_resources.resource_filename("osnet", "models/models_Gulf_Stream")
+            self.default_path = pkg_resources.resource_filename("osnet", os.path.sep.join(["models", "models_Gulf_Stream"]))
             self.load()
             self.info['name'] = 'GulfStream'
             self.info['ref'] = 'Pauthenet et al, 2022 (http://dx.doi.org/...)'
@@ -148,22 +149,28 @@ class osnet(osnet_proto):
 
     def load(self, path=None):
         if path is None:
-            path = self.model_path
+            path = self.default_path
 
         # Load scalers:
         self.scalers = {}
-        self.scalers['scaler_input'] = jbload(f"{path}/scaler_input.joblib")
-        self.scalers['scal_Sm'] = jbload(f'{path}/Sm.joblib')
-        self.scalers['scal_Sstd'] = jbload(f'{path}/Sstd.joblib')
-        self.scalers['scal_Tm'] = jbload(f'{path}/Tm.joblib')
-        self.scalers['scal_Tstd'] = jbload(f'{path}/Tstd.joblib')
+        self.scalers['scaler_input'] = jbload(os.path.sep.join([path, "scaler_input.joblib"]))
+        self.scalers['scal_Sm'] = jbload(os.path.sep.join([path, "Sm.joblib"]))
+        self.scalers['scal_Sstd'] = jbload(os.path.sep.join([path, "Sstd.joblib"]))
+        self.scalers['scal_Tm'] = jbload(os.path.sep.join([path, "Tm.joblib"]))
+        self.scalers['scal_Tstd'] = jbload(os.path.sep.join([path, "Tstd.joblib"]))
 
         # Load models
-        models_list = glob.glob(f'{path}/neuralnet/ensemble/*')
+        models_list = glob.glob(os.path.sep.join([path, "neuralnet", "ensemble", "*"]))
         ensemble = []
         for model_path in models_list:
             ensemble.append(keras.models.load_model(model_path, compile=False))
         self.models = ensemble
+
+        if path is not None:
+            self.info['name'] = 'custom'
+            self.info['ref'] = '-'
+            self.info['models'] = '%i instance(s) in the ensemble' % (len(self.models))
+
         return self
 
     def predict(self, ds_inputs, **kwargs):
