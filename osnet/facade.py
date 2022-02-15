@@ -20,8 +20,9 @@ class osnet_proto(ABC):
         summary.append("MLD adjusted: %s" % self.adjust_mld)
         return "\n".join(summary)
 
-    def summary(self):
-        return self.models[0].summary()
+    def summary(self, id=0):
+        """ Show keras network summary for a model instance """
+        return self.models[id].summary()
 
     def _make_X(self, x):
         """ create X vector """
@@ -139,7 +140,7 @@ class osnet(osnet_proto):
                  adjust_mld=True):
         if name == 'Gulf-Stream':
             self.default_path = pkg_resources.resource_filename("osnet", os.path.sep.join(["models", "models_Gulf_Stream"]))
-            self.load()
+            self._load()
             self.info['name'] = 'GulfStream'
             self.info['ref'] = 'Pauthenet et al, 2022 (http://dx.doi.org/...)'
             self.info['models'] = '%i instance(s) in the ensemble' % (len(self.models))
@@ -147,7 +148,7 @@ class osnet(osnet_proto):
             raise ValueError('Unknown model name')
         self.adjust_mld = adjust_mld
 
-    def load(self, path=None):
+    def _load(self, path=None):
         if path is None:
             path = self.default_path
 
