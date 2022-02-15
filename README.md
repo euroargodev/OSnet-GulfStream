@@ -3,7 +3,6 @@
 |Methodology| Pauthenet et al, 2022 (insert link to paper here)<br>Method source code: https://github.com/euroargodev/OSnet|
 |OSnet gridded dataset|[![Gridded dataset](https://zenodo.org/badge/DOI/10.5281/zenodo.6011144.svg)](https://doi.org/10.5281/zenodo.6011144)
 |OSnet software<br><i>to make your own predictions</i>|![License](https://img.shields.io/github/license/euroargodev/argopy) [![Python version](https://img.shields.io/pypi/pyversions/argopy)](//pypi.org/project/argopy/)<br>[![](https://img.shields.io/github/release-date/euroargodev/osnet)](//github.com/euroargodev/osnet/releases) [![PyPI](https://img.shields.io/pypi/v/osnet)](//pypi.org/project/osnet/) |
-|
 
 # Install
 
