@@ -6,9 +6,21 @@ import numpy as np
 import gsw
 import xarray as xr
 from numba import float64, guvectorize
+import pkg_resources
 
 class osnet_proto(ABC):
     adjust_mld = True
+    info = {'name': '?', 'ref': '?', 'models': '?'}
+
+    def __repr__(self):
+        summary = ["<osnet.%s>" % self.info['name']]
+        summary.append("Reference: %s" % self.info['ref'])
+        summary.append("Models: %s" % self.info['models'])
+        summary.append("MLD adjusted: %s" % self.adjust_mld)
+        return "\n".join(summary)
+
+    def summary(self):
+        return self.models[0].summary()
 
     def _make_X(self, x):
         """ create X vector """
@@ -125,8 +137,11 @@ class osnet(osnet_proto):
                  name='Gulf-Stream',
                  adjust_mld=True):
         if name == 'Gulf-Stream':
-            self.model_path = 'models_Gulf_Stream'
+            self.model_path = pkg_resources.resource_filename("osnet", "models/models_Gulf_Stream")
             self.load()
+            self.info['name'] = 'GulfStream'
+            self.info['ref'] = 'Pauthenet et al, 2022 (http://dx.doi.org/...)'
+            self.info['models'] = '%i instance(s) in the ensemble' % (len(self.models))
         else:
             raise ValueError('Unknown model name')
         self.adjust_mld = adjust_mld
