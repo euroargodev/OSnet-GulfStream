@@ -182,10 +182,16 @@ class osnet(osnet_proto):
         return self
 
     def predict(self, ds_inputs, **kwargs):
-        return self._predict(x=ds_inputs,
-                             ensemble=self.models,
-                             scal_Sm=self.scalers['scal_Sm'], scal_Sstd=self.scalers['scal_Sstd'],
-                             scal_Tm=self.scalers['scal_Tm'], scal_Tstd=self.scalers['scal_Tstd'],
-                             scaler_input=self.scalers['scaler_input'],
-                             suffix="_TS",
-                             **kwargs)
+        ds_output = self._predict(x=ds_inputs,
+                                    ensemble=self.models,
+                                    scal_Sm=self.scalers['scal_Sm'], scal_Sstd=self.scalers['scal_Sstd'],
+                                    scal_Tm=self.scalers['scal_Tm'], scal_Tstd=self.scalers['scal_Tstd'],
+                                    scaler_input=self.scalers['scaler_input'],
+                                    suffix="_TS",
+                                    **kwargs)
+        # ds_output has ds_inputs variables dimensions broadcasted, so we need to re-assign to their original shape:
+        for v in ds_inputs.data_vars:
+            if v in ds_output:
+                ds_output = ds_output.assign({v:ds_inputs[v]})
+
+        return ds_output
