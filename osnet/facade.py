@@ -30,26 +30,6 @@ class osnet_proto(ABC):
                         60, 65, 70, 75, 80, 90, 100, 110, 120, 133, 147, 163, 180, 199, 221, 245, 271,
                         301, 334, 371, 412, 458, 509, 565, 628, 697, 773, 857, 950, 1000]
 
-    # def _make_X(self, x):
-    #     """ create X vector """
-    #     d = 1/365
-    #     cos_week = np.cos(np.pi * 2 * d * x['dayOfYear'].data)
-    #     sin_week = np.sin(np.pi * 2 * d * x['dayOfYear'].data)
-    #     X = np.zeros([len(x['lat']), 12])
-    #     X[:,0] = x['SLA'].data
-    #     X[:,1] = x['lat'].data
-    #     X[:,2] = x['lon'].data
-    #     X[:,3] = cos_week
-    #     X[:,4] = sin_week
-    #     X[:,5] = x['MDT'].data
-    #     X[:,6] = x['UGOSA'].data
-    #     X[:,7] = x['VGOSA'].data
-    #     X[:,8] = x['UGOS'].data
-    #     X[:,9] = x['VGOS'].data
-    #     X[:,10] = x['SST'].data
-    #     X[:,11] = -x['BATHY'].data
-    #     return X
-
     def _make_X(self, x):
         """ create X vector """
         x = x.stack({'sampling': list(x.dims)})
@@ -88,28 +68,11 @@ class osnet_proto(ABC):
         mask = np.sign(0.5 - mask)
         return depth_levels[np.argmin(mask)]
 
-    # def _add_sig(self, ds):
-    #     SA = gsw.SA_from_SP(ds['psal'], ds['PRES_INTERPOLATED'], ds['lon'], ds['lat'])
-    #     CT = gsw.CT_from_t(SA, ds['temp'], ds['PRES_INTERPOLATED'])
-    #     sig = gsw.sigma0(SA, CT)
-    #     ds = ds.assign(variables={"sig": (('lat', 'PRES_INTERPOLATED'), sig.data)})
-    #     return ds
-
     def _add_sig(self, ds):
         SA = gsw.SA_from_SP(ds['psal'], ds['PRES_INTERPOLATED'], ds['lon'], ds['lat'])
         CT = gsw.CT_from_t(SA, ds['temp'], ds['PRES_INTERPOLATED'])
         sig = gsw.sigma0(SA, CT)
         return ds.assign(variables={"sig": sig})
-
-    # def _add_maskv3(self, ds):
-    #     b = 2
-    #     b2 = 1
-    #     H = 0.5664  # For OSnet Gulf Stream, see Pauthenet et al, 2022
-    #     mask2 = np.where(ds['MLD_mask'].data < H, ds['MLD_mask'], 1)
-    #     ds = ds.assign(variables={"MLD_mask2": (('lat', 'PRES_INTERPOLATED'), mask2)})
-    #     mask3 = np.where((ds['MLD_mask'] > H) & (ds['MLD_mask'] < b2), b - ds['MLD_mask'].data, ds['MLD_mask2'].data)
-    #     ds = ds.assign(variables={"MLD_mask3": (('lat', 'PRES_INTERPOLATED'), mask3)})
-    #     return ds
 
     def _add_maskv3(self, ds):
         b = 2
@@ -156,30 +119,25 @@ class osnet_proto(ABC):
         X, y = self._make_X(x)
         X_scaled = scaler_input.transform(X)
 
-        # ------------- Predict and add to dataset -------------- #
+        # Prediction:
         get_MLD_from_mask_vect = np.vectorize(self._get_MLD_from_mask, signature='(k)->()')
         pred_S_mean, pred_S_std, pred_T_mean, pred_T_std, mld = self._get_mean_std_pred(ensemble, X_scaled, scal_Sm, scal_Sstd, scal_Tm, scal_Tstd)
 
-        # x = x.assign(variables={"psal": (('lat', 'PRES_INTERPOLATED'), pred_S_mean.data)})
-        # x = x.assign(variables={"temp": (('lat', 'PRES_INTERPOLATED'), pred_T_mean.data)})
-        # x = x.assign(variables={"MLD_mask": (('lat', 'PRES_INTERPOLATED'), mld.data)})
-        # x = x.assign(variables={"mld": (('lat'), get_MLD_from_mask_vect(x.MLD_mask))})
-        # x = x.assign(variables={"psal_std": (('lat', 'PRES_INTERPOLATED'), pred_S_std.data)})
-        # x = x.assign(variables={"temp_std": (('lat', 'PRES_INTERPOLATED'), pred_T_std.data)})
-
+        # Add to dataset:
         y = y.assign(variables={"PRES_INTERPOLATED": (("PRES_INTERPOLATED"), self.SDL)})
         y = y.assign(variables={"temp": (("sampling", "PRES_INTERPOLATED"), pred_T_mean)})
         y = y.assign(variables={"temp_std": (("sampling", "PRES_INTERPOLATED"), pred_T_std)})
         y = y.assign(variables={"psal": (("sampling", "PRES_INTERPOLATED"), pred_S_mean)})
         y = y.assign(variables={"psal_std": (("sampling", "PRES_INTERPOLATED"), pred_S_std)})
         y = y.assign(variables={"mld": (("sampling"), get_MLD_from_mask_vect(mld.data))})
-        y = y.assign(variables={"MLD_mask": (("sampling", "PRES_INTERPOLATED"), mld.data)})
 
+        # Adjust Mixed layer:
         if ('adjust_mld' in kwargs and kwargs['adjust_mld']) or self.adjust_mld:
             y = y.assign(variables={"MLD_mask": (("sampling", "PRES_INTERPOLATED"), mld.data)})
             y = self._add_sig(y)
             y = self._add_maskv3(y)
             y = self._post_processing_adjustment(y, mask=y['MLD_mask3'])
+            y = y.drop_vars(['MLD_mask', 'MLD_mask2', 'MLD_mask3'])
 
         return y.unstack('sampling')
 
