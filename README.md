@@ -8,6 +8,7 @@
 
 ```bash
 pip instal osnet
+pip install git+http://github.com/euroargodev/osnet.git@as_a_library
 ```
 
 To create the ``OSnet`` python environment suitable to run these notebooks, you should:
