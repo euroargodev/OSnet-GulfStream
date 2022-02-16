@@ -26,7 +26,7 @@ python -m ipykernel install --user --name=OSnet
 
 Import library:
 ```python
-from osnet import osnet
+import osnet
 import xarray as xr
 ```
 
@@ -37,7 +37,7 @@ ds_in = xr.DataSet([...])
 
 Load model and make prediction:
 ```python
-model = osnet('Gulf-Stream')
+model = osnet.load('Gulf-Stream')
 ds_out = model.predict(ds_in)
 ds_out = model.predict(ds_in, adjust_mld=False)  # Do not perform MLD adjustment
 ```
