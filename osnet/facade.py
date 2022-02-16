@@ -2,11 +2,11 @@ import os
 from joblib import load as jbload
 import glob
 from tensorflow import keras
-from abc import ABC, abstractmethod
+from abc import ABC
 import numpy as np
 import gsw
 import xarray as xr
-from numba import float64, guvectorize
+from numba import guvectorize
 import pkg_resources
 import logging
 
@@ -14,7 +14,7 @@ import logging
 log = logging.getLogger("osnet.facade")
 
 
-class osnet_proto(ABC):
+class predictor_proto(ABC):
     adjust_mld = True
     info = {'name': '?', 'ref': '?', 'models': '?'}
 
@@ -50,7 +50,7 @@ class osnet_proto(ABC):
     def _mask_X(self, x):
         """ Compute a mask to make the X vector full, i.e. without NaN """
         M = list()
-        Features = ['SST', 'SLA', 'MDT']
+        Features = ['SST', 'SLA', 'MDT', 'BATHY']
         for v in Features:
             M.append(x[v].notnull())
         mask = xr.concat(M, dim='n_features')
@@ -192,7 +192,8 @@ class osnet_proto(ABC):
 
         return y.unstack('sampling')
 
-class osnet(osnet_proto):
+
+class predictor(predictor_proto):
     def __init__(self,
                  name='Gulf-Stream',
                  adjust_mld=True):
