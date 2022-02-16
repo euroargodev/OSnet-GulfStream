@@ -8,12 +8,14 @@ log = logging.getLogger("osnet.options")
 
 # Define option names as seen by users:
 MDT_FILE = "mdt"
+BATHY_FILE = "bathymetry"
 VALID_DOMAIN = "domain"
 UNBOUND = "unbound"
 
 # Define the list of available options and default values:
 OPTIONS = {
     MDT_FILE: "mdt-cnes-cls18-GulfStream.nc",  # File name to be found under the 'assets' folder
+    BATHY_FILE: "bathymetry-GulfStream.nc",  # File name to be found under the 'assets' folder
     VALID_DOMAIN: [360-85, 360-25, 18, 55],  # Validity bounds of model predictions: [lon_min, lan_max, lat_min, lat_max]
     UNBOUND: False,  # Allow for the model to make predictions out of the valid domain bounds
 }
@@ -21,6 +23,7 @@ OPTIONS = {
 # Define how to validate options:
 _VALIDATORS = {
     MDT_FILE: os.path.exists,
+    BATHY_FILE: os.path.exists,
     VALID_DOMAIN: lambda L: np.all([(isinstance(b, int) or isinstance(b, (np.floating, float))) for b in L]),
     UNBOUND: lambda x: isinstance(x, bool)
 }
@@ -42,7 +45,7 @@ class set_options:
 
     Or to set global options:
 
-    >>> osnet.set_options(src='localftp')
+    >>> osnet.set_options(mdt='mdt-cnes-cls18-global.nc')
 
     """
     def __init__(self, **kwargs):
