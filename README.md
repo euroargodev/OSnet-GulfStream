@@ -1,4 +1,4 @@
-|<img src="https://github.com/euroargodev/OSnet-GulfStream/raw/as_a_library/docs/_static/osnet_landscape.png" height="75"/><br><h1>Gulf Stream</h1>| <h2>Ocean Stratification NETwork: Making ocean 3D predictions using Neural Network</h2>|
+|<img src="https://github.com/euroargodev/OSnet-GulfStream/raw/as_a_library/docs/_static/osnet_landscape.png" width="120"/><br><h1>Gulf Stream</h1>| <h2>Ocean Stratification NETwork: Making ocean 3D predictions using Neural Network</h2>|
 |:---------:|:-------|
 |Methodology| Pauthenet et al, 2022 (insert link to paper here)<br>Method source code: https://github.com/euroargodev/OSnet|
 |OSnet gridded dataset|[![Gridded dataset](https://zenodo.org/badge/DOI/10.5281/zenodo.6011144.svg)](https://doi.org/10.5281/zenodo.6011144)
