@@ -1,4 +1,6 @@
 import os
+import warnings
+
 from joblib import load as jbload
 import glob
 from tensorflow import keras
@@ -81,23 +83,26 @@ class predictor_proto(ABC):
         X[:, 7] = x['VGOSA'].data
         X[:, 8] = x['UGOS'].data
         X[:, 9] = x['VGOS'].data
-        X[:, 10] = x['SST'].data
-        X[:, 11] = -np.abs(x['BATHY'].data)
+        X[:, 10] = x['SST'].data  # in degC
+        X[:, 11] = np.abs(x['BATHY'].data)  # make sure bathymetry is positive
         return X, x
 
     def _get_mean_std_pred(self, ensemble, X, Sm, Sstd, Tm, Tstd):
         predS = []
         predT = []
-        mld = []
+        predK = []
         for model in ensemble:
             tmp_pred = model.predict(X)
-            temp = tmp_pred[:, :, 1] * Tstd + Tm
             psal = tmp_pred[:, :, 0] * Sstd + Sm
+            temp = tmp_pred[:, :, 1] * Tstd + Tm
+            mld = tmp_pred[:, :, 2]
             predS.append(psal)
             predT.append(temp)
-            mld.append(tmp_pred[:, :, 2])
-        return np.mean(predS, axis=0), np.std(predS, axis=0), np.mean(predT, axis=0), np.std(predT, axis=0), np.mean(
-            mld, axis=0)
+            predK.append(mld)
+        output = np.mean(predS, axis=0), np.std(predS, axis=0), \
+                 np.mean(predT, axis=0), np.std(predT, axis=0), \
+                 np.mean(predK, axis=0)
+        return output
 
     def _get_MLD_from_mask(self, mask):
         depth_levels = self.SDL
@@ -269,6 +274,12 @@ class predictor(predictor_proto):
         else:
             x = check_and_complement(x)
 
+        adjust_mld_init = self.adjust_mld
+        if 'adjust_mld' in kwargs:
+            if not adjust_mld_init == kwargs['adjust_mld']:
+                warnings.warn("Overwriting model option 'adjust_mld=%s' with %s value" % (adjust_mld_init, kwargs['adjust_mld']))
+                self.adjust_mld = kwargs['adjust_mld']
+
         y = self._predict(x=x,
                             ensemble=self.models,
                             scal_Sm=self.scalers['scal_Sm'], scal_Sstd=self.scalers['scal_Sstd'],
@@ -300,5 +311,8 @@ class predictor(predictor_proto):
         # Possibly remove data we had to add to the input:
         if 'OSnet-added' in out.attrs and not keep_added:
             out = out.drop_vars(out.attrs['OSnet-added'].split(";"))
+
+        # Restore model set-up temporarily overwritten with options:
+        self.adjust_mld = adjust_mld_init
 
         return self._sign_predictions(out)
