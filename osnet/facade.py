@@ -10,6 +10,8 @@ from numba import guvectorize
 import pkg_resources
 import logging
 
+from .utilities import check_and_complement
+
 
 log = logging.getLogger("osnet.facade")
 
@@ -233,7 +235,7 @@ class predictor(predictor_proto):
 
         return self
 
-    def predict(self, x, inplace=True, **kwargs):
+    def predict(self, x, inplace=True, keep_added=False, **kwargs):
         """ Make T/S/MLD predictions
 
         Parameters
@@ -264,6 +266,8 @@ class predictor(predictor_proto):
         """
         if self._is_signed(x):
             raise ValueError("Cannot make predictions from a dataset that already has OSnet variables")
+        else:
+            x = check_and_complement(x)
 
         y = self._predict(x=x,
                             ensemble=self.models,
@@ -292,5 +296,9 @@ class predictor(predictor_proto):
             # log.debug(list(set(x.data_vars)))
             y = y.drop_vars(list(set(x.data_vars)))
             out = y
+
+        # Possibly remove data we had to add to the input:
+        if 'OSnet-added' in out.attrs and not keep_added:
+            out = out.drop_vars(out.attrs['OSnet-added'].split(";"))
 
         return self._sign_predictions(out)
