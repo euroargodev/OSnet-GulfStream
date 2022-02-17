@@ -1,4 +1,4 @@
-|<h1>OSnet<br>Gulf Stream</h1>| Making T/S/MLD predictions in the Gulf Stream Extension region using Neural Network|
+|<img src="docs/_static/logo_OSnet_00.png" height="75"/><br><h1>Gulf Stream</h1>| Making T/S/MLD predictions in the Gulf Stream Extension region using Neural Network|
 |:---------:|:-------|
 |Methodology| Pauthenet et al, 2022 (insert link to paper here)<br>Method source code: https://github.com/euroargodev/OSnet|
 |OSnet gridded dataset|[![Gridded dataset](https://zenodo.org/badge/DOI/10.5281/zenodo.6011144.svg)](https://doi.org/10.5281/zenodo.6011144)
