@@ -34,7 +34,7 @@ class predictor_proto(ABC):
         return self.models[id].summary()
 
     def _sign_predictions(self, this_obj):
-        """ Add attribute to 'sign' a variable as associated with OSnet """
+        """ Add attribute to 'sign' a dataset or variable as associated with OSnet """
         if isinstance(this_obj, xr.Dataset):
             this_obj.attrs['OSnet'] = "This dataset has variable(s) generated with OSnet-%s model: %s" % (self.info['name'], self.info['ref'])
         if isinstance(this_obj, xr.DataArray):
@@ -87,15 +87,18 @@ class predictor_proto(ABC):
         X[:, 11] = np.abs(x['BATHY'].data)  # make sure bathymetry is positive
         return X, x
 
-    def _get_mean_std_pred(self, ensemble, X, Sm, Sstd, Tm, Tstd):
+    def _get_mean_std_pred(self, ensemble, X, Sm, Sstd, Tm, Tstd, scale=True):
         predS = []
         predT = []
         predK = []
         for model in ensemble:
             tmp_pred = model.predict(X)
-            psal = tmp_pred[:, :, 0] * Sstd + Sm
-            temp = tmp_pred[:, :, 1] * Tstd + Tm
+            psal = tmp_pred[:, :, 0]
+            temp = tmp_pred[:, :, 1]
             mld = tmp_pred[:, :, 2]
+            if scale:
+                psal = psal * Sstd + Sm
+                temp = temp * Tstd + Tm
             predS.append(psal)
             predT.append(temp)
             predK.append(mld)
@@ -141,8 +144,8 @@ class predictor_proto(ABC):
         temp_out, psal_out = xr.apply_ufunc(apply_mask_1d,
                                             ds['temp'], ds['psal'], ds['PRES_INTERPOLATED'], mask,
                                             input_core_dims=(
-                                            ['PRES_INTERPOLATED'], ['PRES_INTERPOLATED'], ['PRES_INTERPOLATED'],
-                                            ['PRES_INTERPOLATED']),
+                                            ['PRES_INTERPOLATED'], ['PRES_INTERPOLATED'],
+                                            ['PRES_INTERPOLATED'], ['PRES_INTERPOLATED']),
                                             output_core_dims=(['PRES_INTERPOLATED'], ['PRES_INTERPOLATED']),
                                             output_dtypes=[np.float64, np.float64])
         # get sig adjusted
@@ -155,37 +158,44 @@ class predictor_proto(ABC):
                                       "sig_adj": (('sampling', 'PRES_INTERPOLATED'), sig_out.data)})
         return ds_out
 
-    def _predict(self, x, ensemble, scal_Sm, scal_Sstd, scal_Tm, scal_Tstd, scaler_input, **kwargs):
+    def _predict(self, x, ensemble, scal_Sm, scal_Sstd, scal_Tm, scal_Tstd, scaler_input, scale=True, **kwargs):
         """ Make prediction """
         X, y = self._make_X(x)  # y is stacked/masked x
         X_scaled = scaler_input.transform(X)
 
         # Prediction:
-        get_MLD_from_mask_vect = np.vectorize(self._get_MLD_from_mask, signature='(k)->()')
-        pred_S_mean, pred_S_std, pred_T_mean, pred_T_std, mld = self._get_mean_std_pred(ensemble, X_scaled, scal_Sm, scal_Sstd, scal_Tm, scal_Tstd)
+        pred_S_mean, pred_S_std, pred_T_mean, pred_T_std, mld = self._get_mean_std_pred(ensemble,
+                                                                                        X_scaled,
+                                                                                        scal_Sm, scal_Sstd,
+                                                                                        scal_Tm, scal_Tstd,
+                                                                                        scale=scale)
 
-        # Add to dataset:
+        # Add predicted variables to dataset:
+        #TODO: Add CF attributes for each of these variables
+        vlist = ['PRES_INTERPOLATED', 'temp', 'temp_std', 'psal', 'psal_std']
         y = y.assign(variables={"PRES_INTERPOLATED": (("PRES_INTERPOLATED"), self.SDL)})
         y = y.assign(variables={"temp": (("sampling", "PRES_INTERPOLATED"), pred_T_mean)})
         y = y.assign(variables={"temp_std": (("sampling", "PRES_INTERPOLATED"), pred_T_std)})
         y = y.assign(variables={"psal": (("sampling", "PRES_INTERPOLATED"), pred_S_mean)})
         y = y.assign(variables={"psal_std": (("sampling", "PRES_INTERPOLATED"), pred_S_std)})
+
+        vlist += ['mld']
+        get_MLD_from_mask_vect = np.vectorize(self._get_MLD_from_mask, signature='(k)->()')
         y = y.assign(variables={"mld": (("sampling"), get_MLD_from_mask_vect(mld.data))})
-        vlist = ['temp', 'temp_std', 'psal', 'psal_std', 'mld']
 
         # Adjust Mixed layer:
         if ('adjust_mld' in kwargs and kwargs['adjust_mld']) or self.adjust_mld:
             y = y.assign(variables={"MLD_mask": (("sampling", "PRES_INTERPOLATED"), mld.data)})
-            y = self._add_sig(y)
+            y = self._add_sig(y)  # This variable could be added to output even without MLD adjustment
             y = self._add_maskv3(y)
             y = self._post_processing_adjustment(y, mask=y['MLD_mask3'])
             y = y.drop_vars(['MLD_mask', 'MLD_mask2', 'MLD_mask3'])
             vlist += ['sig', 'temp_adj', 'psal_adj', 'sig_adj']
 
-        # # Add attributes:
-        # for v in vlist:
-        #     y[v] = self._sign_predictions(y[v])
-        #
+        # Add attributes:
+        for v in vlist:
+            y[v] = self._sign_predictions(y[v])
+
         # # Prepare output according to input mask
         # x = x.stack({'sampling': list(x.dims)})
         # for v in list(set(y.data_vars) - set(x.data_vars)):
@@ -285,7 +295,6 @@ class predictor(predictor_proto):
                             scal_Sm=self.scalers['scal_Sm'], scal_Sstd=self.scalers['scal_Sstd'],
                             scal_Tm=self.scalers['scal_Tm'], scal_Tstd=self.scalers['scal_Tstd'],
                             scaler_input=self.scalers['scaler_input'],
-                            suffix="_TS",
                             **kwargs)
 
         # ds_output has ds_inputs variables dimensions broadcasted, so we need to re-assign to their original shape:
@@ -311,6 +320,7 @@ class predictor(predictor_proto):
         # Possibly remove data we had to add to the input:
         if 'OSnet-added' in out.attrs and not keep_added:
             out = out.drop_vars(out.attrs['OSnet-added'].split(";"))
+            out.attrs.pop('OSnet-added')
 
         # Restore model set-up temporarily overwritten with options:
         self.adjust_mld = adjust_mld_init
