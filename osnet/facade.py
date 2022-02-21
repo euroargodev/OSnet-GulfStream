@@ -12,7 +12,7 @@ from numba import guvectorize
 import pkg_resources
 import logging
 
-from .utilities import check_and_complement
+from .utilities import check_and_complement, conv_lon
 
 
 log = logging.getLogger("osnet.facade")
@@ -166,7 +166,7 @@ class predictor_proto(ABC):
         log.debug("Osnet working with X[%i,%i] input array" % (X.shape[0], X.shape[1]))
         X[:, 0] = x['SLA'].data
         X[:, 1] = x['lat'].data
-        X[:, 2] = x['lon'].data
+        X[:, 2] = conv_lon(x['lon'].data)
         X[:, 3] = np.cos(np.pi * 2 * 1 / 365 * x['dayOfYear'].data)
         X[:, 4] = np.sin(np.pi * 2 * 1 / 365 * x['dayOfYear'].data)
         X[:, 5] = x['MDT'].data
@@ -178,7 +178,7 @@ class predictor_proto(ABC):
         X[:, 11] = np.abs(x['BATHY'].data)  # make sure bathymetry is positive
         return X, x
 
-    def _get_mean_std_pred(self, ensemble, X, Sm, Sstd, Tm, Tstd, scale=True):
+    def _get_mean_std_pred(self, ensemble, X, scalers, scale=True):
         predS = []
         predT = []
         predK = []
@@ -188,14 +188,18 @@ class predictor_proto(ABC):
             temp = tmp_pred[:, :, 1]
             mld = tmp_pred[:, :, 2]
             if scale:
-                psal = psal * Sstd + Sm
-                temp = temp * Tstd + Tm
+                psal = psal * scalers['scal_Sstd'] + scalers['scal_Sm']
+                temp = temp * scalers['scal_Tstd'] + scalers['scal_Tm']
             predS.append(psal)
             predT.append(temp)
             predK.append(mld)
-        output = np.mean(predS, axis=0), np.std(predS, axis=0), \
-                 np.mean(predT, axis=0), np.std(predT, axis=0), \
-                 np.mean(predK, axis=0)
+        output = {
+            'Sm':  np.mean(predS, axis=0),
+            'Sstd': np.std(predS, axis=0),
+            'Tm':  np.mean(predT, axis=0),
+            'Tstd': np.std(predT, axis=0),
+            'Km':  np.mean(predK, axis=0)
+        }
         return output
 
     def _get_MLD_from_mask(self, mask):
@@ -255,30 +259,24 @@ class predictor_proto(ABC):
         X_scaled = scalers['scaler_input'].transform(X)
 
         # Prediction:
-        pred_S_mean, pred_S_std, pred_T_mean, pred_T_std, mld = self._get_mean_std_pred(ensemble,
-                                                                                        X_scaled,
-                                                                                        scalers['scal_Sm'],
-                                                                                        scalers['scal_Sstd'],
-                                                                                        scalers['scal_Tm'],
-                                                                                        scalers['scal_Tstd'],
-                                                                                        scale=scale)
+        predictions = self._get_mean_std_pred(ensemble, X_scaled, scalers, scale=scale)
 
         # Add predicted variables to dataset:
         #TODO: Add CF attributes for each of these variables
         vlist = ['PRES_INTERPOLATED', 'temp', 'temp_std', 'psal', 'psal_std']
         y = y.assign(variables={"PRES_INTERPOLATED": (("PRES_INTERPOLATED"), self.SDL)})
-        y = y.assign(variables={"temp": (("sampling", "PRES_INTERPOLATED"), pred_T_mean)})
-        y = y.assign(variables={"temp_std": (("sampling", "PRES_INTERPOLATED"), pred_T_std)})
-        y = y.assign(variables={"psal": (("sampling", "PRES_INTERPOLATED"), pred_S_mean)})
-        y = y.assign(variables={"psal_std": (("sampling", "PRES_INTERPOLATED"), pred_S_std)})
+        y = y.assign(variables={"temp": (("sampling", "PRES_INTERPOLATED"), predictions['Tm'])})
+        y = y.assign(variables={"temp_std": (("sampling", "PRES_INTERPOLATED"), predictions['Tstd'])})
+        y = y.assign(variables={"psal": (("sampling", "PRES_INTERPOLATED"), predictions['Sm'])})
+        y = y.assign(variables={"psal_std": (("sampling", "PRES_INTERPOLATED"), predictions['Sstd'])})
 
         vlist += ['mld']
         get_MLD_from_mask_vect = np.vectorize(self._get_MLD_from_mask, signature='(k)->()')
-        y = y.assign(variables={"mld": (("sampling"), get_MLD_from_mask_vect(mld.data))})
+        y = y.assign(variables={"mld": (("sampling"), get_MLD_from_mask_vect(predictions['Km'].data))})
 
         # Adjust Mixed layer:
         if ('adjust_mld' in kwargs and kwargs['adjust_mld']) or self.adjust_mld:
-            y = y.assign(variables={"MLD_mask": (("sampling", "PRES_INTERPOLATED"), mld.data)})
+            y = y.assign(variables={"MLD_mask": (("sampling", "PRES_INTERPOLATED"), predictions['Km'].data)})
             y = self._add_sig(y)  # This variable could be added to output even without MLD adjustment
             y = self._add_maskv3(y)
             y = self._post_processing_adjustment(y, mask=y['MLD_mask3'])
@@ -384,13 +382,7 @@ class predictor(predictor_proto):
                 warnings.warn("Overwriting model option 'adjust_mld=%s' with %s value" % (adjust_mld_init, kwargs['adjust_mld']))
                 self.adjust_mld = kwargs['adjust_mld']
 
-        y = self._predict(x=x,
-                            ensemble=self.models,
-                            scalers=self.scalers,
-                            # scal_Sm=self.scalers['scal_Sm'], scal_Sstd=self.scalers['scal_Sstd'],
-                            # scal_Tm=self.scalers['scal_Tm'], scal_Tstd=self.scalers['scal_Tstd'],
-                            # scaler_input=self.scalers['scaler_input'],
-                            **kwargs)
+        y = self._predict(x=x, ensemble=self.models, scalers=self.scalers, **kwargs)
 
         # ds_output has ds_inputs variables dimensions broadcasted, so we need to re-assign to their original shape:
         for v in x.data_vars:

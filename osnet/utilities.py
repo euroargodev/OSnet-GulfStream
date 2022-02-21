@@ -15,6 +15,12 @@ assets = { # Provide direct access to internal assets
     'bathy': xr.open_dataset(os.path.join(path2assets, OPTIONS['bathymetry'])),
 }
 
+def conv_lon(x):
+    """ Make sure longitude axis is -180/180 """
+    if np.all(np.logical_and(x>=0, x<=360)):
+        x = np.where(x>180, x-360, x)
+    return x
+
 
 def add_MDT(ds: xr.Dataset, path=None) -> xr.Dataset:
     """ Add MDT variable to dataset
@@ -50,14 +56,14 @@ def add_MDT(ds: xr.Dataset, path=None) -> xr.Dataset:
         attrs[k] = mdt.attrs[k]
 
     # Squeeze domain
-    mdt = mdt.where((mdt['longitude']>=OPTIONS['domain'][0])
-                    & (mdt['longitude']<=OPTIONS['domain'][1])
+    mdt = mdt.where((mdt['longitude']>=conv_lon(OPTIONS['domain'][0]))
+                    & (mdt['longitude']<=conv_lon(OPTIONS['domain'][1]))
                     & (mdt['latitude']>=OPTIONS['domain'][2])
                     & (mdt['latitude']<=OPTIONS['domain'][3]),
                     drop=True)
     # Interp on the input grid:
     mdt = mdt.interp(latitude=ds['lat'],
-                     longitude=ds['lon'],
+                     longitude=conv_lon(ds['lon']),
                      method = 'linear')['mdt'].astype(np.float32).squeeze().values.T
     if len(mdt.shape) == 0:
         mdt = mdt[np.newaxis, np.newaxis]
@@ -105,14 +111,14 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
     attrs['standard_name'] = 'sea_floor_depth_below_sea_surface'
 
     # Squeeze domain:
-    bathy = bathy.where((bathy['longitude']>=OPTIONS['domain'][0])
-                    & (bathy['longitude']<=OPTIONS['domain'][1])
+    bathy = bathy.where((bathy['longitude']>=conv_lon(OPTIONS['domain'][0]))
+                    & (bathy['longitude']<=conv_lon(OPTIONS['domain'][1]))
                     & (bathy['latitude']>=OPTIONS['domain'][2])
                     & (bathy['latitude']<=OPTIONS['domain'][3]),
                     drop=True)
     # Interp
     bathy = bathy.interp(latitude=ds['lat'],
-                         longitude=ds['lon'],
+                         longitude=conv_lon(ds['lon']),
                          method = 'linear')['bathymetry'].astype(np.float32).squeeze().values.T
     if len(bathy.shape) == 0:
         bathy = bathy[np.newaxis, np.newaxis]
