@@ -14,10 +14,10 @@ The folder ``docs`` contains many advanced notebooks to get you started with mak
 pip install git+http://github.com/euroargodev/OSnet-GulfStream.git@as_a_library
 ```
 
-To create the ``OSnet`` python environment suitable to run these notebooks, you should:
+To create the ``OSnet`` python development environment, you can:
 
 ```bash
-conda env create -f environment.yml
+conda env create -f ci/requirements/py3.8-dev.yml
 ```
 
 Then, to make it available in Jupyter notebooks:
