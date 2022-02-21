@@ -209,7 +209,7 @@ class predictor_proto(ABC):
         sig = gsw.sigma0(SA, CT)
         return ds.assign(variables={"sig": sig})
 
-    def _add_maskv3(self, ds):
+    def _add_maskv3(self, ds:xr.Dataset) -> xr.Dataset:
         b = 2
         b2 = 1
         H = 0.5664  # For OSnet Gulf Stream, see Pauthenet et al, 2022
@@ -219,7 +219,7 @@ class predictor_proto(ABC):
         ds = ds.assign(variables={"MLD_mask3": (('sampling', 'PRES_INTERPOLATED'), mask3)})
         return ds
 
-    def _post_processing_adjustment(self, ds, mask):
+    def _post_processing_adjustment(self, ds: xr.Dataset, mask) -> xr.Dataset:
         @guvectorize(
             "(float64[:], float64[:], float64[:], float64[:], float64[:], float64[:])",
             "(n), (n), (n), (n) -> (n), (n)"
@@ -249,16 +249,18 @@ class predictor_proto(ABC):
                                       "sig_adj": (('sampling', 'PRES_INTERPOLATED'), sig_out.data)})
         return ds_out
 
-    def _predict(self, x, ensemble, scal_Sm, scal_Sstd, scal_Tm, scal_Tstd, scaler_input, scale=True, **kwargs):
+    def _predict(self, x: xr.Dataset, ensemble: list, scalers: dict, scale=True, **kwargs) -> xr.Dataset:
         """ Make prediction """
         X, y = self._make_X(x)  # y is stacked/masked x
-        X_scaled = scaler_input.transform(X)
+        X_scaled = scalers['scaler_input'].transform(X)
 
         # Prediction:
         pred_S_mean, pred_S_std, pred_T_mean, pred_T_std, mld = self._get_mean_std_pred(ensemble,
                                                                                         X_scaled,
-                                                                                        scal_Sm, scal_Sstd,
-                                                                                        scal_Tm, scal_Tstd,
+                                                                                        scalers['scal_Sm'],
+                                                                                        scalers['scal_Sstd'],
+                                                                                        scalers['scal_Tm'],
+                                                                                        scalers['scal_Tstd'],
                                                                                         scale=scale)
 
         # Add predicted variables to dataset:
@@ -384,9 +386,10 @@ class predictor(predictor_proto):
 
         y = self._predict(x=x,
                             ensemble=self.models,
-                            scal_Sm=self.scalers['scal_Sm'], scal_Sstd=self.scalers['scal_Sstd'],
-                            scal_Tm=self.scalers['scal_Tm'], scal_Tstd=self.scalers['scal_Tstd'],
-                            scaler_input=self.scalers['scaler_input'],
+                            scalers=self.scalers,
+                            # scal_Sm=self.scalers['scal_Sm'], scal_Sstd=self.scalers['scal_Sstd'],
+                            # scal_Tm=self.scalers['scal_Tm'], scal_Tstd=self.scalers['scal_Tstd'],
+                            # scaler_input=self.scalers['scaler_input'],
                             **kwargs)
 
         # ds_output has ds_inputs variables dimensions broadcasted, so we need to re-assign to their original shape:
