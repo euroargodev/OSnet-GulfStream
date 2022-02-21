@@ -413,10 +413,12 @@ class predictor(predictor_proto):
 
         # Possibly remove data we had to add to the input:
         if 'OSnet-added' in out.attrs and not keep_added:
-            out = out.drop_vars(out.attrs['OSnet-added'].split(";"))
+            # log.debug(list(set(out.data_vars)))
+            # log.debug(out.attrs)
+            out = out.drop_vars(out.attrs['OSnet-added'].split(";"), errors='ignore')
             out.attrs.pop('OSnet-added')
 
-        # Restore model set-up temporarily overwritten with options:
+        # Restore model set-up temporarily overwritten with local options:
         self.adjust_mld = adjust_mld_init
 
         return self._sign_predictions(out)
