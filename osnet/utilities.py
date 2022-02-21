@@ -1,4 +1,4 @@
-
+import sys
 import os
 import numpy as np
 import xarray as xr
@@ -166,3 +166,138 @@ def check_and_complement(ds: xr.Dataset) -> xr.Dataset:
         # This will be used by the facade to possible delete these variables from the output dataset
 
     return ds
+
+
+def get_sys_info():
+    "Returns system information as a dict"
+
+    blob = []
+
+    # get full commit hash
+    commit = None
+    if os.path.isdir(".git") and os.path.isdir("osnet"):
+        try:
+            pipe = subprocess.Popen(
+                'git log --format="%H" -n 1'.split(" "),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            so, serr = pipe.communicate()
+        except Exception:
+            pass
+        else:
+            if pipe.returncode == 0:
+                commit = so
+                try:
+                    commit = so.decode("utf-8")
+                except ValueError:
+                    pass
+                commit = commit.strip().strip('"')
+
+    blob.append(("commit", commit))
+
+    try:
+        (sysname, nodename, release, version_, machine, processor) = platform.uname()
+        blob.extend(
+            [
+                ("python", sys.version),
+                ("python-bits", struct.calcsize("P") * 8),
+                ("OS", "%s" % (sysname)),
+                ("OS-release", "%s" % (release)),
+                ("machine", "%s" % (machine)),
+                ("processor", "%s" % (processor)),
+                ("byteorder", "%s" % sys.byteorder),
+                ("LC_ALL", "%s" % os.environ.get("LC_ALL", "None")),
+                ("LANG", "%s" % os.environ.get("LANG", "None")),
+                ("LOCALE", "%s.%s" % locale.getlocale()),
+            ]
+        )
+    except Exception:
+        pass
+
+    return blob
+
+
+def netcdf_and_hdf5_versions():
+    libhdf5_version = None
+    libnetcdf_version = None
+    try:
+        import netCDF4
+
+        libhdf5_version = netCDF4.__hdf5libversion__
+        libnetcdf_version = netCDF4.__netcdf4libversion__
+    except ImportError:
+        try:
+            import h5py
+
+            libhdf5_version = h5py.version.hdf5_version
+        except ImportError:
+            pass
+    return [("libhdf5", libhdf5_version), ("libnetcdf", libnetcdf_version)]
+
+
+def show_versions(file=sys.stdout):  # noqa: C901
+    """ Print the versions of osnet and its dependencies
+
+    Parameters
+    ----------
+    file : file-like, optional
+        print to the given file-like object. Defaults to sys.stdout.
+    """
+    sys_info = get_sys_info()
+
+    try:
+        sys_info.extend(netcdf_and_hdf5_versions())
+    except Exception as e:
+        print(f"Error collecting netcdf / hdf5 version: {e}")
+
+    deps = [
+        # (MODULE_NAME, f(mod) -> mod version)
+        ("osnet", lambda mod: mod.__version__),
+        ("tensorflow", lambda mod: mod.__version__),
+        ("keras", lambda mod: mod.__version__),
+        ("joblib", lambda mod: mod.__version__),
+        ("numba", lambda mod: mod.__version__),
+        ("dask", lambda mod: mod.__version__),
+
+        ("numpy", lambda mod: mod.__version__),
+        ("scipy", lambda mod: mod.__version__),
+        ("pandas", lambda mod: mod.__version__),
+        ("xarray", lambda mod: mod.__version__),
+        ("sklearn", lambda mod: mod.__version__),
+
+        ("matplotlib", lambda mod: mod.__version__),
+        ("gsw", lambda mod: mod.__version__),
+        ("seaborn", lambda mod: mod.__version__),
+        ("IPython", lambda mod: mod.__version__),
+        ("netCDF4", lambda mod: mod.__version__),
+
+        ("packaging", lambda mod: mod.__version__),
+        ("pip", lambda mod: mod.__version__),
+    ]
+
+    deps_blob = list()
+    for (modname, ver_f) in deps:
+        try:
+            if modname in sys.modules:
+                mod = sys.modules[modname]
+            else:
+                mod = importlib.import_module(modname)
+        except Exception:
+            deps_blob.append((modname, None))
+        else:
+            try:
+                ver = ver_f(mod)
+                deps_blob.append((modname, ver))
+            except Exception:
+                deps_blob.append((modname, "installed"))
+
+    print("\nINSTALLED VERSIONS", file=file)
+    print("------------------", file=file)
+
+    for k, stat in sys_info:
+        print(f"{k}: {stat}", file=file)
+
+    print("", file=file)
+    for k, stat in deps_blob:
+        print(f"{k}: {stat}", file=file)
