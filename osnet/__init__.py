@@ -9,7 +9,7 @@ except Exception:
 from .facade import predictor as load
 from .options import set_options  # noqa: E402
 from . import utilities  # noqa: E402
-from .utilities import show_versions  # noqa: E402
+from .utilities import show_versions, assets  # noqa: E402
 
 #
 __all__ = (
@@ -18,6 +18,7 @@ __all__ = (
     # Utilities promoted to top-level functions:
     "set_options",
     "show_versions",
+    "assets",
     # Sub-packages,
     "utilities",
     # Constants

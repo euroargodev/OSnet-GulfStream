@@ -16,7 +16,7 @@ UNBOUND = "unbound"
 OPTIONS = {
     MDT_FILE: "mdt-cnes-cls18-GulfStream.nc",  # File name to be found under the 'assets' folder
     BATHY_FILE: "bathymetry-GulfStream.nc",  # File name to be found under the 'assets' folder
-    VALID_DOMAIN: [360-85, 360-25, 18, 55],  # Validity bounds of model predictions: [lon_min, lan_max, lat_min, lat_max], [360-80, 360-30, 23, 50]
+    VALID_DOMAIN: [-85, -25, 18, 55],  # Validity bounds of model predictions: [lon_min, lan_max, lat_min, lat_max], [-80, -30, 23, 50]
     UNBOUND: False,  # Allow for the model to make predictions out of the valid domain bounds
 }
 

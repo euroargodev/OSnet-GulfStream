@@ -10,6 +10,11 @@ log = logging.getLogger("osnet.utilities")
 
 path2assets = pkg_resources.resource_filename("osnet", "assets/")
 
+assets = { # Provide direct access to internal assets
+    'mdt': xr.open_dataset(os.path.join(path2assets, OPTIONS['mdt'])),
+    'bathy': xr.open_dataset(os.path.join(path2assets, OPTIONS['bathymetry'])),
+}
+
 
 def add_MDT(ds: xr.Dataset, path=None) -> xr.Dataset:
     """ Add MDT variable to dataset
