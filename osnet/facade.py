@@ -36,13 +36,104 @@ class predictor_proto(ABC):
     def _sign_predictions(self, this_obj):
         """ Add attribute to 'sign' a dataset or variable as associated with OSnet """
         if isinstance(this_obj, xr.Dataset):
-            this_obj.attrs['OSnet'] = "This dataset has variable(s) generated with OSnet-%s model: %s" % (self.info['name'], self.info['ref'])
+            this_obj.attrs['OSnet'] = "This dataset has variable(s) generated with an OSnet-%s model" % (self.info['name'])
         if isinstance(this_obj, xr.DataArray):
-            this_obj.attrs['OSnet'] = "This variable has been generated with OSnet-%s model: %s" % (self.info['name'], self.info['ref'])
+            this_obj.attrs['OSnet'] = "This variable has been generated with an OSnet-%s model" % (self.info['name'])
         return this_obj
 
     def _is_signed(self, this_obj):
         return 'OSnet' in this_obj.attrs or 'PRES_INTERPOLATED' in this_obj
+
+    def _add_attributes(self, this):
+        """ Add attributes to predicted variables
+
+            Use the Argo vocabulary and convention
+
+        """
+        for v in this.data_vars:
+            if "temp" in v:
+                this[v].attrs = {
+                    "long_name": "OSnet SEA TEMPERATURE prediction",
+                    "standard_name": "sea_water_temperature",
+                    "units": "degree_Celsius",
+                    "valid_min": -2.0,
+                    "valid_max": 40.0,
+                    "description": "OSnet ensemble mean value",
+                    "ancillary_variables": "temp_std",
+                    "references": self.info['ref'],
+                }
+                if "_std" in v:
+                    this[v].attrs["long_name"] = "Spread in OSnet SEA TEMPERATURE prediction"
+                    this[v].attrs["generated"] = "OSnet ensemble std value"
+                    this[v].attrs.pop("ancillary_variables")
+                if "_adj" in v:
+                    this[v].attrs["long_name"] = "OSnet SEA TEMPERATURE prediction (ML adjusted)"
+                    this[v].attrs["description"] = "Value adjusted with OSnet Mixed Layer model"
+
+            if "psal" in v:
+                this[v].attrs = {
+                    "long_name": "OSnet PRACTICAL SALINITY prediction",
+                    "standard_name": "sea_water_salinity",
+                    "units": "psu",
+                    "valid_min": 0.0,
+                    "valid_max": 43.0,
+                    "description": "OSnet ensemble mean value",
+                    "ancillary_variables": "psal_std",
+                    "references": self.info['ref'],
+                }
+                if "std" in v:
+                    this[v].attrs["long_name"] = "Spread in OSnet PRACTICAL SALINITY prediction"
+                    this[v].attrs["description"] = "OSnet ensemble std value"
+                    this[v].attrs.pop("ancillary_variables")
+                if "_adj" in v:
+                    this[v].attrs["long_name"] = "OSnet PRACTICAL SALINITY prediction (ML adjusted)"
+                    this[v].attrs["description"] = "OSnet ensemble mean value adjusted with OSnet Mixed Layer model"
+
+            if "sig" in v:
+                this[v].attrs = {
+                    "long_name": "OSnet prediction for SEA WATER POTENTIAL DENSITY ANOMALY with reference pressure of 0 dbar",
+                    "standard_name": "sea_water_sigma_theta",
+                    "units": "kg/m3",
+                    "valid_min": 0.0,
+                    "valid_max": 60.0,
+                    "description": "OSnet ensemble mean value",
+                    "ancillary_variables": "sig_std",
+                    "references": self.info['ref'],
+                }
+                if "std" in v:
+                    this[v].attrs["long_name"] = "Spread in SEA WATER POTENTIAL DENSITY ANOMALY prediction"
+                    this[v].attrs["description"] = "OSnet ensemble std value"
+                    this[v].attrs.pop("ancillary_variables")
+                if "_adj" in v:
+                    this[v].attrs["long_name"] = "OSnet prediction for SEA WATER POTENTIAL DENSITY ANOMALY with reference pressure of 0 dbar (ML adjusted)"
+                    this[v].attrs["description"] = "OSnet ensemble mean value adjusted with OSnet Mixed Layer model"
+
+            if "mld" in v:
+                this[v].attrs = {
+                    "long_name": "OSnet MIXED LAYER THICKNESS prediction",
+                    "standard_name": "ocean_mixed_layer_thickness",
+                    "units": "m",
+                    "valid_min": 0.0,
+                    "valid_max": 6000.0,
+                    "description": "OSnet ensemble mean value",
+                    "references": self.info['ref'],
+                }
+
+        for v in this.coords:
+            if "PRES_INTERPOLATED" in v:
+                this[v].attrs = {
+                    "long_name": "OSnet standard pressure levels",
+                    "standard_name": "sea_water_pressure",
+                    "units": "decibar",
+                    "valid_min": 0.0,
+                    "valid_max": 12000.0,
+                    "resolution": 0.1,
+                    "axis": "Z",
+                    "description": "OSnet standard pressure levels",
+                    "references": self.info['ref'],
+                }
+
+        return this
 
     @property
     def SDL(self):
@@ -193,6 +284,7 @@ class predictor_proto(ABC):
             vlist += ['sig', 'temp_adj', 'psal_adj', 'sig_adj']
 
         # Add attributes:
+        y = self._add_attributes(y)
         for v in vlist:
             y[v] = self._sign_predictions(y[v])
 
@@ -315,6 +407,8 @@ class predictor(predictor_proto):
             # log.debug("NOT INPLACE: Remove input arrays from the predicted dataset:")
             # log.debug(list(set(x.data_vars)))
             y = y.drop_vars(list(set(x.data_vars)))
+            y.attrs['featureType'] = 'profile'
+            y.attrs['Conventions'] = 'CF-1.8'
             out = y
 
         # Possibly remove data we had to add to the input:
