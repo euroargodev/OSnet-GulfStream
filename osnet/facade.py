@@ -42,7 +42,7 @@ class predictor_proto(ABC):
         return this_obj
 
     def _is_signed(self, this_obj):
-        return 'OSnet' in this_obj.attrs
+        return 'OSnet' in this_obj.attrs or 'PRES_INTERPOLATED' in this_obj
 
     @property
     def SDL(self):
