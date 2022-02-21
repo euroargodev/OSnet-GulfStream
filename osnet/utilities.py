@@ -37,13 +37,20 @@ def add_MDT(ds: xr.Dataset, path=None) -> xr.Dataset:
     """
     if path is None:
         path = os.path.join(path2assets, OPTIONS['mdt'])
-
     mdt = xr.open_dataset(path)
+
+    # Preserve attributes for the output:
+    attrs = mdt['mdt'].attrs
+    for k in ['institution', 'processing_level', 'product_version', 'summary', 'title']:
+        attrs[k] = mdt.attrs[k]
+
+    # Squeeze domain
     mdt = mdt.where((mdt['longitude']>=OPTIONS['domain'][0])
                     & (mdt['longitude']<=OPTIONS['domain'][1])
                     & (mdt['latitude']>=OPTIONS['domain'][2])
                     & (mdt['latitude']<=OPTIONS['domain'][3]),
                     drop=True)
+    # Interp on the input grid:
     mdt = mdt.interp(latitude=ds['lat'],
                      longitude=ds['lon'],
                      method = 'linear')['mdt'].astype(np.float32).squeeze().values.T
@@ -53,8 +60,10 @@ def add_MDT(ds: xr.Dataset, path=None) -> xr.Dataset:
         mdt = mdt[np.newaxis]
     try:
         ds = ds.assign(variables={"MDT": (("lon", "lat"), mdt)})
+        ds['MDT'].attrs = attrs
     except Exception:
         ds = ds.assign(variables={"MDT": (("lon", "lat"), mdt.T)})
+        ds['MDT'].attrs = attrs
     finally:
         return ds
 
@@ -82,13 +91,21 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
     """
     if path is None:
         path = os.path.join(path2assets, OPTIONS['bathymetry'])
-
     bathy = xr.open_dataset(path)
+
+    # Preserve attributes for the output:
+    attrs = bathy['bathymetry'].attrs
+    for k in ['title', 'GMT_version']:
+        attrs[k] = bathy.attrs[k]
+    attrs['standard_name'] = 'sea_floor_depth_below_sea_surface'
+
+    # Squeeze domain:
     bathy = bathy.where((bathy['longitude']>=OPTIONS['domain'][0])
                     & (bathy['longitude']<=OPTIONS['domain'][1])
                     & (bathy['latitude']>=OPTIONS['domain'][2])
                     & (bathy['latitude']<=OPTIONS['domain'][3]),
                     drop=True)
+    # Interp
     bathy = bathy.interp(latitude=ds['lat'],
                          longitude=ds['lon'],
                          method = 'linear')['bathymetry'].astype(np.float32).squeeze().values.T
@@ -98,8 +115,10 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
         bathy = bathy[np.newaxis]
     try:
         ds = ds.assign(variables={"BATHY": (("lon", "lat"), bathy)})
+        ds['BATHY'].attrs = attrs
     except Exception:
         ds = ds.assign(variables={"BATHY": (("lon", "lat"), bathy.T)})
+        ds['BATHY'].attrs = attrs
     finally:
         return ds
 
