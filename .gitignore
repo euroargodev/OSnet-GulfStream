@@ -79,7 +79,6 @@ target/
 # Jupyter Notebook
 .ipynb_checkpoints
 cache
-*.nc
 .idea
 local_work/
 cache
@@ -193,4 +192,3 @@ fabric.properties
 .vscode/
 .pytest_cache
 knotebooks/
-.DS_Store
