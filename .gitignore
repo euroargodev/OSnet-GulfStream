@@ -192,7 +192,3 @@ fabric.properties
 .vscode/
 .pytest_cache
 knotebooks/
-argopy/tests/cov.xml
-argopy/tests/dummy_fileA.txt
-float_source/
-.DS_Store
