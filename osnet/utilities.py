@@ -134,140 +134,12 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
         return ds
 
 
-def add_SSTclim(ds: xr.Dataset, path=None) -> xr.Dataset:
-    """ Add OSTIA SST climatology to dataset
-
-    This function is used by the facade to complement an input dataset with missing variables like SST
-
-    This SST is from the Global Ocean OSTIA Sea Surface Temperature dataset:
-    https://resources.marine.copernicus.eu/product-detail/SST_GLO_SST_L4_REP_OBSERVATIONS_010_011/INFORMATION
-
-    The horizontal resolution of the climatological SST is: 1/20 in latitude and longitude.
-
-    The SST climatology is calculated from daily fields over 1993-2019.
-
-    Parameters
-    ----------
-    ds: :class:`xarray.DataSet`
-        Dataset with 'lat' and 'lon' coordinates to interpolate SST on
-    path: str
-        Absolute path to the SST netcdf source file
-
-    Returns
-    -------
-    ds: :class:`xarray.DataSet`
-        Dataset with new interpolated SST climatology variable
-    """
-    if path is None:
-        path = os.path.join(path2assets, OPTIONS['sst_clim'])
-    ds_src = xr.open_dataset(path)
-
-    # Preserve attributes for the output:
-    attrs = ds_src['analysed_sst'].attrs
-    for k in ['Conventions', 'title', 'summary', 'institution', 'references', 'product_version']:
-        attrs[k] = ds_src.attrs[k]
-
-    # Squeeze domain
-    ds_src = ds_src.where((ds_src['lon']>=conv_lon(OPTIONS['domain'][0]))
-                    & (ds_src['lon']<=conv_lon(OPTIONS['domain'][1]))
-                    & (ds_src['lat']>=OPTIONS['domain'][2])
-                    & (ds_src['lat']<=OPTIONS['domain'][3]),
-                    drop=True)
-
-    # Interp on the input grid:
-    field = ds_src.interp(lat=ds['lat'],
-                     lon=conv_lon(ds['lon']),
-                     method = 'linear')['analysed_sst'].astype(np.float32).squeeze().values.T
-
-    field = field-273.15
-    attrs['units'] = 'degC'
-    attrs['valid_min'] = -2
-    attrs['valid_max'] = 40
-
-    # Reshape
-    if len(field.shape) == 0:
-        field = field[np.newaxis, np.newaxis]
-    if len(field.shape) == 1:
-        field = field[np.newaxis]
-    try:
-        ds = ds.assign(variables={"SST": (("lon", "lat"), field)})
-        ds['SST'].attrs = attrs
-    except Exception:
-        ds = ds.assign(variables={"SST": (("lon", "lat"), field.T)})
-        ds['SST'].attrs = attrs
-    finally:
-        return ds
-
-
-def add_SLAclim(ds: xr.Dataset, path=None) -> xr.Dataset:
-    """ Add AVISO SLA climatology, and related fields, to dataset
-
-    This function is used by the facade to complement an input dataset with missing variables like SST
-
-    This SLA is from the global SSALTO/DUACS Sea Surface Height measured by Altimetry dataset.
-    https://resources.marine.copernicus.eu/product-detail/SEALEVEL_GLO_PHY_MDT_008_063/INFORMATION
-
-    The horizontal resolution of the climatological SLA is: 1/4 in latitude and longitude.
-
-    The SLA climatology is calculated from daily fields over 1993-2019.
-
-    Parameters
-    ----------
-    ds: :class:`xarray.DataSet`
-        Dataset with 'lat' and 'lon' coordinates to interpolate SLA on
-    path: str
-        Absolute path to the SST netcdf source file
-
-    Returns
-    -------
-    ds: :class:`xarray.DataSet`
-        Dataset with new interpolated SST climatology variable
-    """
-    if path is None:
-        path = os.path.join(path2assets, OPTIONS['sla_clim'])
-    ds_src = xr.open_dataset(path)
-
-    # Preserve attributes for the output:
-    attrs = ds_src['sla'].attrs
-    for k in ['Conventions', 'title', 'summary', 'institution', 'references', 'product_version']:
-        attrs[k] = ds_src.attrs[k]
-
-    # Squeeze domain
-    ds_src = ds_src.where((ds_src['longitude']>=conv_lon(OPTIONS['domain'][0]))
-                    & (ds_src['longitude']<=conv_lon(OPTIONS['domain'][1]))
-                    & (ds_src['latitude']>=OPTIONS['domain'][2])
-                    & (ds_src['latitude']<=OPTIONS['domain'][3]),
-                    drop=True)
-
-    # Interp all variables:
-    def interp_this(ds, x, vname='sla'):
-        x = x.interp(latitude=ds['lat'],
-                     longitude=conv_lon(ds['lon']),
-                     method = 'linear')[vname].astype(np.float32).squeeze().values.T
-        return x
-
-    for v in ['sla', 'ugosa', 'vgosa', 'ugos', 'vgos']:
-        val = interp_this(ds, ds_src, vname=v)
-        if len(val.shape) == 0:
-            val = val[np.newaxis, np.newaxis]
-        if len(val.shape) == 1:
-            val = val[np.newaxis]
-        try:
-            ds = ds.assign(variables={v.upper(): (("lon", "lat"), val)})
-        except Exception:
-            ds = ds.assign(variables={v.upper(): (("lon", "lat"), val.T)})
-        ds[v.upper()].attrs = attrs
-
-    # Output
-    return ds
-
-
 def check_and_complement(ds: xr.Dataset) -> xr.Dataset:
     """ Check input dataset and possibly add missing variables
 
     This function is used by the facade when asked to make a prediction
 
-    Here we check if the input :class:`xarray.DataSet` has the required variables to make a prediction:
+    Here we check of the input :class:`xarray.DataSet` has the required variables to make a prediction:
         1. ``lat``
         1. ``lon``
         1. ``time`` or ``dayOfYear``
@@ -281,8 +153,6 @@ def check_and_complement(ds: xr.Dataset) -> xr.Dataset:
         1. ``VGOS``
 
     If ``BATHY``, ``MDT`` or ``dayOfYear`` are missing, we try to add them internally.
-    If ``SST`` is missing, we use a 1993-2019 climatology.
-    If ``SLA`` and related variables are missing, we use a 1993-2019 climatology.
 
     Parameters
     ----------
@@ -310,22 +180,6 @@ def check_and_complement(ds: xr.Dataset) -> xr.Dataset:
             added.append('MDT')
         except Exception:
             raise ValueError("MDT is missing from input and cannot be added automatically")
-
-    if "SST" not in ds.data_vars:
-        try:
-            ds = add_SSTclim(ds)
-            log.debug("Added new variable '%s' to dataset" % "SSTclim")
-            added.append('SST')
-        except Exception:
-            raise ValueError("SST is missing from input and cannot be added automatically")
-
-    if "SLA" not in ds.data_vars:
-        try:
-            ds = add_SLAclim(ds)
-            log.debug("Added new variable '%s' to dataset" % "SLAclim")
-            [added.append(v) for v in ['SLA', 'UGOSA', 'VGOSA', 'UGOS', 'VGOS']]
-        except Exception:
-            raise ValueError("SLA is missing from input and cannot be added automatically")
 
     if "dayOfYear" not in ds.data_vars:
         if "time" not in ds.dims:
