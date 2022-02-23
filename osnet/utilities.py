@@ -339,7 +339,7 @@ def check_and_complement(ds: xr.Dataset) -> xr.Dataset:
     if "SST" not in ds.data_vars:
         try:
             ds = add_SSTclim(ds)
-            log.debug("Added new variable '%s' to dataset" % "SSTclim")
+            log.debug("Added new variable '%s' climatology to dataset" % "SST")
             added.append('SST')
         except Exception:
             raise ValueError("SST is missing from input and cannot be added automatically")
@@ -347,7 +347,7 @@ def check_and_complement(ds: xr.Dataset) -> xr.Dataset:
     if "SLA" not in ds.data_vars:
         try:
             ds = add_SLAclim(ds)
-            log.debug("Added new variable '%s' to dataset" % "SLAclim")
+            log.debug("Added new variable '%s' climatology to dataset" % "SLA, UGOSA, VGOSA, UGOS, VGOS")
             [added.append(v) for v in ['SLA', 'UGOSA', 'VGOSA', 'UGOS', 'VGOS']]
         except Exception:
             raise ValueError("SLA is missing from input and cannot be added automatically")
