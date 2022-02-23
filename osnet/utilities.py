@@ -62,21 +62,27 @@ def add_MDT(ds: xr.Dataset, path=None) -> xr.Dataset:
                     & (mdt['latitude']<=OPTIONS['domain'][3]),
                     drop=True)
     # Interp on the input grid:
-    mdt = mdt.interp(latitude=ds['lat'],
-                     longitude=conv_lon(ds['lon']),
-                     method = 'linear')['mdt'].astype(np.float32).squeeze().values.T
-    if len(mdt.shape) == 0:
-        mdt = mdt[np.newaxis, np.newaxis]
-    if len(mdt.shape) == 1:
-        mdt = mdt[np.newaxis]
-    try:
-        ds = ds.assign(variables={"MDT": (("lon", "lat"), mdt)})
-        ds['MDT'].attrs = attrs
-    except Exception:
-        ds = ds.assign(variables={"MDT": (("lon", "lat"), mdt.T)})
-        ds['MDT'].attrs = attrs
-    finally:
-        return ds
+    if ds['lat'].dims == ('sampling',):  #todo this is clearly not safe proof to any kind of inputs and need precise doc
+        mdt = mdt.interp(latitude=ds['lat'],
+                         longitude=conv_lon(ds['lon']),
+                         method = 'linear')['mdt'].astype(np.float32).values
+        ds = ds.assign(variables={"MDT": (("sampling"), mdt)})
+    else:
+        mdt = mdt.interp(latitude=ds['lat'],
+                         longitude=conv_lon(ds['lon']),
+                         method = 'linear')['mdt'].astype(np.float32).squeeze().values.T
+        if len(mdt.shape) == 0:
+            mdt = mdt[np.newaxis, np.newaxis]
+        if len(mdt.shape) == 1:
+            mdt = mdt[np.newaxis]
+        try:
+            ds = ds.assign(variables={"MDT": (("lon", "lat"), mdt)})
+        except Exception:
+            ds = ds.assign(variables={"MDT": (("lon", "lat"), mdt.T)})
+
+    #
+    ds['MDT'].attrs = attrs
+    return ds
 
 
 def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
@@ -117,21 +123,26 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
                     & (bathy['latitude']<=OPTIONS['domain'][3]),
                     drop=True)
     # Interp
-    bathy = bathy.interp(latitude=ds['lat'],
-                         longitude=conv_lon(ds['lon']),
-                         method = 'linear')['bathymetry'].astype(np.float32).squeeze().values.T
-    if len(bathy.shape) == 0:
-        bathy = bathy[np.newaxis, np.newaxis]
-    if len(bathy.shape) == 1:
-        bathy = bathy[np.newaxis]
-    try:
-        ds = ds.assign(variables={"BATHY": (("lon", "lat"), bathy)})
-        ds['BATHY'].attrs = attrs
-    except Exception:
-        ds = ds.assign(variables={"BATHY": (("lon", "lat"), bathy.T)})
-        ds['BATHY'].attrs = attrs
-    finally:
-        return ds
+    if ds['lat'].dims == ('sampling',):  #todo this is clearly not safe proof to any kind of inputs and need precise doc
+        bathy = bathy.interp(latitude=ds['lat'],
+                             longitude=conv_lon(ds['lon']),
+                             method = 'linear')['bathymetry'].astype(np.float32).values
+        ds = ds.assign(variables={"BATHY": (("sampling"), bathy)})
+    else:
+        bathy = bathy.interp(latitude=ds['lat'],
+                     longitude=conv_lon(ds['lon']),
+                     method = 'linear')['bathymetry'].astype(np.float32).squeeze().values.T
+        if len(bathy.shape) == 0:
+            bathy = bathy[np.newaxis, np.newaxis]
+        if len(bathy.shape) == 1:
+            bathy = bathy[np.newaxis]
+        try:
+            ds = ds.assign(variables={"BATHY": (("lon", "lat"), bathy)})
+        except Exception:
+            ds = ds.assign(variables={"BATHY": (("lon", "lat"), bathy.T)})
+    #
+    ds['BATHY'].attrs = attrs
+    return ds
 
 
 def add_SSTclim(ds: xr.Dataset, path=None) -> xr.Dataset:
@@ -175,28 +186,31 @@ def add_SSTclim(ds: xr.Dataset, path=None) -> xr.Dataset:
                     drop=True)
 
     # Interp on the input grid:
-    field = ds_src.interp(lat=ds['lat'],
-                     lon=conv_lon(ds['lon']),
-                     method = 'linear')['analysed_sst'].astype(np.float32).squeeze().values.T
+    if ds['lat'].dims == ('sampling',):  #todo this is clearly not safe proof to any kind of inputs and need precise doc
+        field = ds_src.interp(lat=ds['lat'],
+                              lon=conv_lon(ds['lon']),
+                              method = 'linear')['analysed_sst'].astype(np.float32).values
+        ds = ds.assign(variables={"SST": (("sampling"), field)})
+    else:
+        field = ds_src.interp(lat=ds['lat'],
+                         lon=conv_lon(ds['lon']),
+                         method = 'linear')['analysed_sst'].astype(np.float32).squeeze().values.T
+        # Try to handle reshaping
+        if len(field.shape) == 0:
+            field = field[np.newaxis, np.newaxis]
+        if len(field.shape) == 1:
+            field = field[np.newaxis]
+        try:
+            ds = ds.assign(variables={"SST": (("lon", "lat"), field)})
+        except Exception:
+            ds = ds.assign(variables={"SST": (("lon", "lat"), field.T)})
 
-    field = field-273.15
-    attrs['units'] = 'degC'
-    attrs['valid_min'] = -2
-    attrs['valid_max'] = 40
-
-    # Reshape
-    if len(field.shape) == 0:
-        field = field[np.newaxis, np.newaxis]
-    if len(field.shape) == 1:
-        field = field[np.newaxis]
-    try:
-        ds = ds.assign(variables={"SST": (("lon", "lat"), field)})
-        ds['SST'].attrs = attrs
-    except Exception:
-        ds = ds.assign(variables={"SST": (("lon", "lat"), field.T)})
-        ds['SST'].attrs = attrs
-    finally:
-        return ds
+    ds['SST'].attrs = attrs
+    ds['SST'] = ds['SST']-273.15
+    ds['SST'].attrs['units'] = 'degC'
+    ds['SST'].attrs['valid_min'] = -2
+    ds['SST'].attrs['valid_max'] = 40
+    return ds
 
 
 def add_SLAclim(ds: xr.Dataset, path=None) -> xr.Dataset:
@@ -240,23 +254,34 @@ def add_SLAclim(ds: xr.Dataset, path=None) -> xr.Dataset:
                     drop=True)
 
     # Interp all variables:
-    def interp_this(ds, x, vname='sla'):
-        x = x.interp(latitude=ds['lat'],
-                     longitude=conv_lon(ds['lon']),
-                     method = 'linear')[vname].astype(np.float32).squeeze().values.T
-        return x
+    if ds['lat'].dims == ('sampling',):  #todo this is clearly not safe proof to any kind of inputs and need precise doc
+        def interp_this(ds, x, vname='sla'):
+            x = x.interp(latitude=ds['lat'],
+                         longitude=conv_lon(ds['lon']),
+                         method = 'linear')[vname].astype(np.float32).values
+            return x
+        for v in ['sla', 'ugosa', 'vgosa', 'ugos', 'vgos']:
+            val = interp_this(ds, ds_src, vname=v)
+            ds = ds.assign(variables={v.upper(): (("sampling"), val)})
+            ds[v.upper()].attrs = attrs
+    else:
+        def interp_this(ds, x, vname='sla'):
+            x = x.interp(latitude=ds['lat'],
+                         longitude=conv_lon(ds['lon']),
+                         method = 'linear')[vname].astype(np.float32).squeeze().values.T
+            return x
 
-    for v in ['sla', 'ugosa', 'vgosa', 'ugos', 'vgos']:
-        val = interp_this(ds, ds_src, vname=v)
-        if len(val.shape) == 0:
-            val = val[np.newaxis, np.newaxis]
-        if len(val.shape) == 1:
-            val = val[np.newaxis]
-        try:
-            ds = ds.assign(variables={v.upper(): (("lon", "lat"), val)})
-        except Exception:
-            ds = ds.assign(variables={v.upper(): (("lon", "lat"), val.T)})
-        ds[v.upper()].attrs = attrs
+        for v in ['sla', 'ugosa', 'vgosa', 'ugos', 'vgos']:
+            val = interp_this(ds, ds_src, vname=v)
+            if len(val.shape) == 0:
+                val = val[np.newaxis, np.newaxis]
+            if len(val.shape) == 1:
+                val = val[np.newaxis]
+            try:
+                ds = ds.assign(variables={v.upper(): (("lon", "lat"), val)})
+            except Exception:
+                ds = ds.assign(variables={v.upper(): (("lon", "lat"), val.T)})
+            ds[v.upper()].attrs = attrs
 
     # Output
     return ds
@@ -328,8 +353,8 @@ def check_and_complement(ds: xr.Dataset) -> xr.Dataset:
             raise ValueError("SLA is missing from input and cannot be added automatically")
 
     if "dayOfYear" not in ds.data_vars:
-        if "time" not in ds.dims:
-            raise ValueError("Input dataset must have a 'time' coordinate/dimension")
+        if "time" not in ds:
+            raise ValueError("Input dataset must have a 'time' coordinate/dimension or variable")
         try:
             ds = ds.assign(variables={"dayOfYear": ds['time.dayofyear']})
             log.debug("Added new variable '%s' to dataset" % "dayOfYear")
