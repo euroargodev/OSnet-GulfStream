@@ -28,6 +28,8 @@ python -m ipykernel install --user --name=OSnet
 
 # Usage
 
+[![badge](https://img.shields.io/static/v1.svg?logo=Jupyter&label=Pangeo+Binder&message=Click+here+to+try+osnet+online+!&color=blue&style=for-the-badge)](https://mybinder.org/v2/gh/euroargodev/OSnet-GulfStream/binder?labpath=docs/demo-predictions.ipynb)
+
 Import library:
 ```python
 import osnet
