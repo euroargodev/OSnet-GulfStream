@@ -305,7 +305,7 @@ def check_and_complement(ds: xr.Dataset) -> xr.Dataset:
 
     This function is used by the facade when asked to make a prediction
 
-    Here we check if the input :class:`xarray.DataSet` has the required variables to make a prediction:
+    Here we check of the input :class:`xarray.DataSet` has the required variables to make a prediction:
         1. ``lat``
         1. ``lon``
         1. ``time`` or ``dayOfYear``
@@ -319,8 +319,6 @@ def check_and_complement(ds: xr.Dataset) -> xr.Dataset:
         1. ``VGOS``
 
     If ``BATHY``, ``MDT`` or ``dayOfYear`` are missing, we try to add them internally.
-    If ``SST`` is missing, we use a 1993-2019 climatology.
-    If ``SLA`` and related variables are missing, we use a 1993-2019 climatology.
 
     Parameters
     ----------
