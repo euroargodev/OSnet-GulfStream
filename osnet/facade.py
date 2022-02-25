@@ -289,7 +289,6 @@ class predictor_proto(ABC):
         """ Make prediction """
         X, y = self._make_X(x)  # y is stacked/masked x
         if X.shape[0] == 0:
-            log.error(x)
             raise ValueError("No data found in input dataset suitable for OSnet predictions. "
                              "Try to set option `unbound` to True (currently set to %s) "
                              "or update the domain definition (currently set to %s)" % (OPTIONS['unbound'], OPTIONS['domain']))
@@ -299,7 +298,6 @@ class predictor_proto(ABC):
         predictions = self._get_mean_std_pred(ensemble, X_scaled, scalers, scale=scale)
 
         # Add predicted variables to dataset:
-        #TODO: Add CF attributes for each of these variables
         vlist = ['PRES_INTERPOLATED', 'temp', 'temp_std', 'psal', 'psal_std']
         y = y.assign(variables={"PRES_INTERPOLATED": (("PRES_INTERPOLATED"), self.SDL)})
         y = y.assign(variables={"temp": (("sampling", "PRES_INTERPOLATED"), predictions['Tm'])})
@@ -325,8 +323,8 @@ class predictor_proto(ABC):
         for v in vlist:
             y[v] = self._sign_predictions(y[v])
 
-        y.attrs['OSnet-Nsample'] = X.shape[0]
         y = self.unravel(y)
+        y.attrs['OSnet-Nsample'] = X.shape[0]
         return y
 
 
@@ -411,12 +409,14 @@ class predictor(predictor_proto):
                 self.adjust_mld = kwargs['adjust_mld']
 
         y = self._predict(x=x, ensemble=self.models, scalers=self.scalers, **kwargs)
+        log.debug(y.attrs)
 
         # ds_output has ds_inputs variables dimensions broadcasted, so we need to re-assign to their original shape:
         if self._stacking:
             for v in x.data_vars:
                 if v in y:
                     y = y.assign({v: x[v]})
+        log.debug(y.attrs)
 
         # Return dataset:
         if inplace:
@@ -425,7 +425,9 @@ class predictor(predictor_proto):
             # log.debug(list(set(y.data_vars) - set(x.data_vars)))
             for v in list(set(y.data_vars) - set(x.data_vars)):
                 x = x.assign({v: y[v]})
+                x[v].attrs = y[v].attrs
             out = x
+            out.attrs = y.attrs
         else:
             # Remove input arrays from the predicted dataset:
             # log.debug("NOT INPLACE: Remove input arrays from the predicted dataset:")
@@ -434,6 +436,7 @@ class predictor(predictor_proto):
             y.attrs['featureType'] = 'profile'
             y.attrs['Conventions'] = 'CF-1.8'
             out = y
+        log.debug(out.attrs)
 
         # Possibly remove data we had to add to the input:
         if 'OSnet-added' in out.attrs and not keep_added:
@@ -441,6 +444,7 @@ class predictor(predictor_proto):
             # log.debug(out.attrs)
             out = out.drop_vars(out.attrs['OSnet-added'].split(";"), errors='ignore')
             out.attrs.pop('OSnet-added')
+        log.debug(out.attrs)
 
         # Restore model set-up temporarily overwritten with local options:
         self.adjust_mld = adjust_mld_init
