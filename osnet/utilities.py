@@ -124,7 +124,7 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
     attrs['standard_name'] = 'sea_floor_depth_below_sea_surface'
 
     # Squeeze domain:
-    log.debug('Working bathymetry with domain: %s' % OPTIONS['domain'])
+    # log.debug('Working bathymetry with domain: %s' % OPTIONS['domain'])
     bathy = bathy.where((bathy['longitude']>=conv_lon(OPTIONS['domain'][0]))
                     & (bathy['longitude']<=conv_lon(OPTIONS['domain'][1]))
                     & (bathy['latitude']>=OPTIONS['domain'][2])
@@ -132,15 +132,15 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
                     drop=True)
     # Interp
     if ds['lat'].dims == ('sampling',):  #todo this is clearly not safe proof to any kind of inputs and need precise doc
-        log.debug("Input with 'sampling' dimension")
-        log.debug(bathy)
+        # log.debug("Input with 'sampling' dimension")
+        # log.debug(bathy)
         bathy = bathy.interp(latitude=ds['lat'],
                              longitude=conv_lon(ds['lon']),
                              method = 'linear')['bathymetry'].astype(np.float32).values
         ds = ds.assign(variables={"BATHY": (("sampling"), bathy)})
     else:
-        log.debug("Input is with 'lat/lon' dimensions")
-        log.debug(bathy)
+        # log.debug("Input is with 'lat/lon' dimensions")
+        # log.debug(bathy)
         bathy = bathy.interp(latitude=ds['lat'],
                      longitude=conv_lon(ds['lon']),
                      method = 'linear')['bathymetry'].astype(np.float32).squeeze().values.T
@@ -153,7 +153,7 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
         except Exception:
             ds = ds.assign(variables={"BATHY": (("lon", "lat"), bathy.T)})
     #
-    log.debug(bathy)
+    # log.debug(bathy)
     ds['BATHY'].attrs = attrs
     return ds
 

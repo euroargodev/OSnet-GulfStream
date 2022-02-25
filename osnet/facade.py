@@ -409,14 +409,14 @@ class predictor(predictor_proto):
                 self.adjust_mld = kwargs['adjust_mld']
 
         y = self._predict(x=x, ensemble=self.models, scalers=self.scalers, **kwargs)
-        log.debug(y.attrs)
+        # log.debug(y.attrs)
 
         # ds_output has ds_inputs variables dimensions broadcasted, so we need to re-assign to their original shape:
         if self._stacking:
             for v in x.data_vars:
                 if v in y:
                     y = y.assign({v: x[v]})
-        log.debug(y.attrs)
+        # log.debug(y.attrs)
 
         # Return dataset:
         if inplace:
@@ -436,7 +436,7 @@ class predictor(predictor_proto):
             y.attrs['featureType'] = 'profile'
             y.attrs['Conventions'] = 'CF-1.8'
             out = y
-        log.debug(out.attrs)
+        # log.debug(out.attrs)
 
         # Possibly remove data we had to add to the input:
         if 'OSnet-added' in out.attrs and not keep_added:
@@ -444,7 +444,7 @@ class predictor(predictor_proto):
             # log.debug(out.attrs)
             out = out.drop_vars(out.attrs['OSnet-added'].split(";"), errors='ignore')
             out.attrs.pop('OSnet-added')
-        log.debug(out.attrs)
+        # log.debug(out.attrs)
 
         # Restore model set-up temporarily overwritten with local options:
         self.adjust_mld = adjust_mld_init
