@@ -533,10 +533,10 @@ def disclaimer(obj="notebook"):
 
     l2 = insert_link("https://www.umr-lops.fr",
                      insert_img(
-                         "https://github.com/euroargodev/OSnet-GulfStream/raw/input_trajectory/docs/_static/logo_lops.png"))
+                         "https://github.com/euroargodev/OSnet-GulfStream/raw/input_trajectory/docs/_static/logo_lops.jpg"))
 
     l3 = insert_link("https://wwz.ifremer.fr",
                      insert_img(
-                         "https://github.com/euroargodev/OSnet-GulfStream/raw/input_trajectory/docs/_static/logo_ifremer.png"))
+                         "https://github.com/euroargodev/OSnet-GulfStream/raw/input_trajectory/docs/_static/logo_ifremer.jpg"))
 
     display(HTML("<hr>" + html + l1 + l2 + l3 + "<hr>"))
