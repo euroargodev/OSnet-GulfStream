@@ -5,6 +5,11 @@ import xarray as xr
 from .options import OPTIONS
 import pkg_resources
 import logging
+import importlib
+import locale
+import platform
+import struct
+import subprocess
 
 log = logging.getLogger("osnet.utilities")
 
@@ -13,6 +18,8 @@ path2assets = pkg_resources.resource_filename("osnet", "assets/")
 assets = { # Provide direct access to internal assets
     'mdt': xr.open_dataset(os.path.join(path2assets, OPTIONS['mdt'])),
     'bathy': xr.open_dataset(os.path.join(path2assets, OPTIONS['bathymetry'])),
+    'sst_clim': xr.open_dataset(os.path.join(path2assets, OPTIONS['sst_clim'])),
+    'sla_clim': xr.open_dataset(os.path.join(path2assets, OPTIONS['sla_clim'])),
 }
 
 def conv_lon(x):
@@ -117,6 +124,7 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
     attrs['standard_name'] = 'sea_floor_depth_below_sea_surface'
 
     # Squeeze domain:
+    log.debug('Working bathymetry with domain: %s' % OPTIONS['domain'])
     bathy = bathy.where((bathy['longitude']>=conv_lon(OPTIONS['domain'][0]))
                     & (bathy['longitude']<=conv_lon(OPTIONS['domain'][1]))
                     & (bathy['latitude']>=OPTIONS['domain'][2])
@@ -124,11 +132,15 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
                     drop=True)
     # Interp
     if ds['lat'].dims == ('sampling',):  #todo this is clearly not safe proof to any kind of inputs and need precise doc
+        log.debug("Input with 'sampling' dimension")
+        log.debug(bathy)
         bathy = bathy.interp(latitude=ds['lat'],
                              longitude=conv_lon(ds['lon']),
                              method = 'linear')['bathymetry'].astype(np.float32).values
         ds = ds.assign(variables={"BATHY": (("sampling"), bathy)})
     else:
+        log.debug("Input is with 'lat/lon' dimensions")
+        log.debug(bathy)
         bathy = bathy.interp(latitude=ds['lat'],
                      longitude=conv_lon(ds['lon']),
                      method = 'linear')['bathymetry'].astype(np.float32).squeeze().values.T
@@ -141,6 +153,7 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
         except Exception:
             ds = ds.assign(variables={"BATHY": (("lon", "lat"), bathy.T)})
     #
+    log.debug(bathy)
     ds['BATHY'].attrs = attrs
     return ds
 
@@ -502,3 +515,30 @@ def show_versions(file=sys.stdout):  # noqa: C901
     print("", file=file)
     for k, stat in deps_blob:
         print(f"{k}: {stat}", file=file)
+
+
+def disclaimer(obj="notebook"):
+    """ Insert our disclaimer banner """
+    from IPython.core.display import HTML, display
+
+    insert_img = lambda url: "<img src='%s' style='height:75px'>" % url
+    insert_link = lambda url, txt: "<a href='%s'>%s</a>" % (url, txt)
+
+    html = "<p>This %s has been developed at the Laboratory for Ocean Physics and Satellite remote sensing, Ifremer, \
+    within the framework of the Euro-ArgoRISE project. <br>This project has received funding from the European \
+    Union’s Horizon 2020 research and innovation programme under grant agreement no 824131. Call INFRADEV-03-2018-2019: \
+    Individual support to ESFRI and other world-class research infrastructures.</p>" % obj
+
+    l1 = insert_link("https://www.euro-argo.eu/EU-Projects/Euro-Argo-RISE-2019-2022",
+                     insert_img(
+                         "https://user-images.githubusercontent.com/59824937/146353317-56b3e70e-aed9-40e0-9212-3393d2e0ddd9.png"))
+
+    l2 = insert_link("https://www.umr-lops.fr",
+                     insert_img(
+                         "https://user-images.githubusercontent.com/59824937/146353157-b45e9943-9643-45d0-bab5-80c22fc2d889.jpg"))
+
+    l3 = insert_link("https://wwz.ifremer.fr",
+                     insert_img(
+                         "https://user-images.githubusercontent.com/59824937/146353099-bcd2bd4e-d310-4807-aee2-9cf24075f0c3.jpg"))
+
+    display(HTML("<hr>" + html + l1 + l2 + l3 + "<hr>"))

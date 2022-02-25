@@ -20,7 +20,7 @@ OPTIONS = {
     BATHY_FILE: "bathymetry-GulfStream.nc",  # File name to be found under the 'assets' folder
     SSTclim_FILE: "SST_Gulf_Stream_Climato.nc",  # File name to be found under the 'assets' folder
     SLAclim_FILE: "SLA_Gulf_Stream_Climato.nc",  # File name to be found under the 'assets' folder
-    VALID_DOMAIN: [-85, -25, 18, 55],  # Validity bounds of model predictions: [lon_min, lan_max, lat_min, lat_max], [-80, -30, 23, 50]
+    VALID_DOMAIN: [-80, -30, 23, 50],  # Validity bounds of model predictions: [lon_min, lan_max, lat_min, lat_max]
     UNBOUND: False,  # Allow for the model to make predictions out of the valid domain bounds
 }
 
