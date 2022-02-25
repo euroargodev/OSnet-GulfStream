@@ -426,9 +426,6 @@ class predictor(predictor_proto):
             for v in list(set(y.data_vars) - set(x.data_vars)):
                 x = x.assign({v: y[v]})
             out = x
-            for key, value in y.attrs.items():
-                if 'OSnet' in key:
-                    out.attrs[key] = y.attrs[key]
         else:
             # Remove input arrays from the predicted dataset:
             # log.debug("NOT INPLACE: Remove input arrays from the predicted dataset:")
