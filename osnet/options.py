@@ -9,6 +9,8 @@ log = logging.getLogger("osnet.options")
 # Define option names as seen by users:
 MDT_FILE = "mdt"
 BATHY_FILE = "bathymetry"
+SSTclim_FILE = "sst_clim"
+SLAclim_FILE = "sla_clim"
 VALID_DOMAIN = "domain"
 UNBOUND = "unbound"
 
@@ -26,6 +28,8 @@ OPTIONS = {
 _VALIDATORS = {
     MDT_FILE: os.path.exists,
     BATHY_FILE: os.path.exists,
+    SSTclim_FILE: os.path.exists,
+    SLAclim_FILE: os.path.exists,
     VALID_DOMAIN: lambda L: np.all([(isinstance(b, int) or isinstance(b, (np.floating, float))) for b in L]),
     UNBOUND: lambda x: isinstance(x, bool)
 }

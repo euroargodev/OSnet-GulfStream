@@ -529,14 +529,14 @@ def disclaimer(obj="notebook"):
 
     l1 = insert_link("https://www.euro-argo.eu/EU-Projects/Euro-Argo-RISE-2019-2022",
                      insert_img(
-                         "https://user-images.githubusercontent.com/59824937/146353317-56b3e70e-aed9-40e0-9212-3393d2e0ddd9.png"))
+                         "https://github.com/euroargodev/OSnet-GulfStream/raw/input_trajectory/docs/_static/logo_earise.png"))
 
     l2 = insert_link("https://www.umr-lops.fr",
                      insert_img(
-                         "https://user-images.githubusercontent.com/59824937/146353157-b45e9943-9643-45d0-bab5-80c22fc2d889.jpg"))
+                         "https://github.com/euroargodev/OSnet-GulfStream/raw/input_trajectory/docs/_static/logo_lops.png"))
 
     l3 = insert_link("https://wwz.ifremer.fr",
                      insert_img(
-                         "https://user-images.githubusercontent.com/59824937/146353099-bcd2bd4e-d310-4807-aee2-9cf24075f0c3.jpg"))
+                         "https://github.com/euroargodev/OSnet-GulfStream/raw/input_trajectory/docs/_static/logo_ifremer.png"))
 
     display(HTML("<hr>" + html + l1 + l2 + l3 + "<hr>"))
