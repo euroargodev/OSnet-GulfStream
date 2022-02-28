@@ -1,4 +1,4 @@
-|<img src="https://github.com/euroargodev/OSnet-GulfStream/raw/as_a_library/docs/_static/osnet_landscape.png" width="300px"/><h1>Gulf-Stream</h1>|``OSnet`` is a python library to make T/S/MLD predictions in the Gulf Stream Extension using Neural Network|
+|<img src="https://github.com/euroargodev/OSnet-GulfStream/raw/main/docs/_static/osnet_landscape.png" width="300px"/><h1>Gulf-Stream</h1>|``OSnet`` is a python library to make T/S/MLD predictions in the Gulf Stream Extension using Neural Network|
 |:---------:|:-------|
 |Methodology| Pauthenet et al, 2022 (insert link to paper here)<br>Method source code: https://github.com/euroargodev/OSnet|
 |OSnet gridded dataset|[![Gridded dataset](https://zenodo.org/badge/DOI/10.5281/zenodo.6011144.svg)](https://doi.org/10.5281/zenodo.6011144)
