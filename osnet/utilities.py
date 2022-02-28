@@ -16,17 +16,18 @@ log = logging.getLogger("osnet.utilities")
 
 path2assets = pkg_resources.resource_filename("osnet", "assets/")
 
-assets = { # Provide direct access to internal assets
-    'mdt': xr.open_dataset(os.path.join(path2assets, OPTIONS['mdt'])),
-    'bathy': xr.open_dataset(os.path.join(path2assets, OPTIONS['bathymetry'])),
-    'sst_clim': xr.open_dataset(os.path.join(path2assets, OPTIONS['sst_clim'])),
-    'sla_clim': xr.open_dataset(os.path.join(path2assets, OPTIONS['sla_clim'])),
+assets = {  # Provide simple user access to internal assets
+    "mdt": xr.open_dataset(os.path.join(path2assets, OPTIONS["mdt"])),
+    "bathy": xr.open_dataset(os.path.join(path2assets, OPTIONS["bathymetry"])),
+    "sst_clim": xr.open_dataset(os.path.join(path2assets, OPTIONS["sst_clim"])),
+    "sla_clim": xr.open_dataset(os.path.join(path2assets, OPTIONS["sla_clim"])),
 }
+
 
 def conv_lon(x):
     """ Make sure longitude axis is -180/180 """
-    if np.all(np.logical_and(x>=0, x<=360)):
-        x = np.where(x>180, x-360, x)
+    if np.all(np.logical_and(x >= 0, x <= 360)):
+        x = np.where(x > 180, x - 360, x)
     return x
 
 
@@ -55,31 +56,44 @@ def add_MDT(ds: xr.Dataset, path=None) -> xr.Dataset:
         Dataset with new interpolated MDT variable
     """
     if path is None:
-        path = os.path.join(path2assets, OPTIONS['mdt'])
+        path = os.path.join(path2assets, OPTIONS["mdt"])
     mdt = xr.open_dataset(path)
 
     # Preserve attributes for the output:
-    attrs = mdt['mdt'].attrs
-    for k in ['institution', 'processing_level', 'product_version', 'summary', 'title']:
+    attrs = mdt["mdt"].attrs
+    for k in ["institution", "processing_level", "product_version", "summary", "title"]:
         attrs[k] = mdt.attrs[k]
 
     # Squeeze domain
-    if not OPTIONS['unbound']:
-        mdt = mdt.where((mdt['longitude']>=conv_lon(OPTIONS['domain'][0]))
-                        & (mdt['longitude']<=conv_lon(OPTIONS['domain'][1]))
-                        & (mdt['latitude']>=OPTIONS['domain'][2])
-                        & (mdt['latitude']<=OPTIONS['domain'][3]),
-                        drop=True)
+    if not OPTIONS["unbound"]:
+        mdt = mdt.where(
+            (mdt["longitude"] >= conv_lon(OPTIONS["domain"][0]))
+            & (mdt["longitude"] <= conv_lon(OPTIONS["domain"][1]))
+            & (mdt["latitude"] >= OPTIONS["domain"][2])
+            & (mdt["latitude"] <= OPTIONS["domain"][3]),
+            drop=True,
+        )
     # Interp on the input grid:
-    if ds['lat'].dims == ('sampling',):  #todo this is clearly not safe proof to any kind of inputs and need precise doc
-        mdt = mdt.interp(latitude=ds['lat'],
-                         longitude=conv_lon(ds['lon']),
-                         method = 'linear')['mdt'].astype(np.float32).values
+    if ds["lat"].dims == (
+        "sampling",
+    ):  # todo this is clearly not safe proof to any kind of inputs and need precise doc
+        mdt = (
+            mdt.interp(
+                latitude=ds["lat"], longitude=conv_lon(ds["lon"]), method="linear"
+            )["mdt"]
+            .astype(np.float32)
+            .values
+        )
         ds = ds.assign(variables={"MDT": (("sampling"), mdt)})
     else:
-        mdt = mdt.interp(latitude=ds['lat'],
-                         longitude=conv_lon(ds['lon']),
-                         method = 'linear')['mdt'].astype(np.float32).squeeze().values.T
+        mdt = (
+            mdt.interp(
+                latitude=ds["lat"], longitude=conv_lon(ds["lon"]), method="linear"
+            )["mdt"]
+            .astype(np.float32)
+            .squeeze()
+            .values.T
+        )
         if len(mdt.shape) == 0:
             mdt = mdt[np.newaxis, np.newaxis]
         if len(mdt.shape) == 1:
@@ -90,7 +104,7 @@ def add_MDT(ds: xr.Dataset, path=None) -> xr.Dataset:
             ds = ds.assign(variables={"MDT": (("lon", "lat"), mdt.T)})
 
     #
-    ds['MDT'].attrs = attrs
+    ds["MDT"].attrs = attrs
     return ds
 
 
@@ -116,36 +130,49 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
         Dataset with new interpolated BATHY variable
     """
     if path is None:
-        path = os.path.join(path2assets, OPTIONS['bathymetry'])
+        path = os.path.join(path2assets, OPTIONS["bathymetry"])
     bathy = xr.open_dataset(path)
 
     # Preserve attributes for the output:
-    attrs = bathy['bathymetry'].attrs
-    for k in ['title', 'GMT_version']:
+    attrs = bathy["bathymetry"].attrs
+    for k in ["title", "GMT_version"]:
         attrs[k] = bathy.attrs[k]
-    attrs['standard_name'] = 'sea_floor_depth_below_sea_surface'
+    attrs["standard_name"] = "sea_floor_depth_below_sea_surface"
 
     # Squeeze domain:
-    if not OPTIONS['unbound']:
-        bathy = bathy.where((bathy['longitude']>=conv_lon(OPTIONS['domain'][0]))
-                        & (bathy['longitude']<=conv_lon(OPTIONS['domain'][1]))
-                        & (bathy['latitude']>=OPTIONS['domain'][2])
-                        & (bathy['latitude']<=OPTIONS['domain'][3]),
-                        drop=True)
+    if not OPTIONS["unbound"]:
+        bathy = bathy.where(
+            (bathy["longitude"] >= conv_lon(OPTIONS["domain"][0]))
+            & (bathy["longitude"] <= conv_lon(OPTIONS["domain"][1]))
+            & (bathy["latitude"] >= OPTIONS["domain"][2])
+            & (bathy["latitude"] <= OPTIONS["domain"][3]),
+            drop=True,
+        )
     # Interp
-    if ds['lat'].dims == ('sampling',):  #todo this is clearly not safe proof to any kind of inputs and need precise doc
+    if ds["lat"].dims == (
+        "sampling",
+    ):  # todo this is clearly not safe proof to any kind of inputs and need precise doc
         # log.debug("Input with 'sampling' dimension")
         # log.debug(bathy)
-        bathy = bathy.interp(latitude=ds['lat'],
-                             longitude=conv_lon(ds['lon']),
-                             method = 'linear')['bathymetry'].astype(np.float32).values
+        bathy = (
+            bathy.interp(
+                latitude=ds["lat"], longitude=conv_lon(ds["lon"]), method="linear"
+            )["bathymetry"]
+            .astype(np.float32)
+            .values
+        )
         ds = ds.assign(variables={"BATHY": (("sampling"), bathy)})
     else:
         # log.debug("Input is with 'lat/lon' dimensions")
         # log.debug(bathy)
-        bathy = bathy.interp(latitude=ds['lat'],
-                     longitude=conv_lon(ds['lon']),
-                     method = 'linear')['bathymetry'].astype(np.float32).squeeze().values.T
+        bathy = (
+            bathy.interp(
+                latitude=ds["lat"], longitude=conv_lon(ds["lon"]), method="linear"
+            )["bathymetry"]
+            .astype(np.float32)
+            .squeeze()
+            .values.T
+        )
         if len(bathy.shape) == 0:
             bathy = bathy[np.newaxis, np.newaxis]
         if len(bathy.shape) == 1:
@@ -156,7 +183,7 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
             ds = ds.assign(variables={"BATHY": (("lon", "lat"), bathy.T)})
     #
     # log.debug(bathy)
-    ds['BATHY'].attrs = attrs
+    ds["BATHY"].attrs = attrs
     return ds
 
 
@@ -185,31 +212,51 @@ def add_SSTclim(ds: xr.Dataset, path=None) -> xr.Dataset:
         Dataset with new interpolated SST climatology variable
     """
     if path is None:
-        path = os.path.join(path2assets, OPTIONS['sst_clim'])
+        path = os.path.join(path2assets, OPTIONS["sst_clim"])
     ds_src = xr.open_dataset(path)
 
     # Preserve attributes for the output:
-    attrs = ds_src['analysed_sst'].attrs
-    for k in ['Conventions', 'title', 'summary', 'institution', 'references', 'product_version']:
+    attrs = ds_src["analysed_sst"].attrs
+    for k in [
+        "Conventions",
+        "title",
+        "summary",
+        "institution",
+        "references",
+        "product_version",
+    ]:
         attrs[k] = ds_src.attrs[k]
 
     # Squeeze domain
-    ds_src = ds_src.where((ds_src['lon']>=conv_lon(OPTIONS['domain'][0]))
-                    & (ds_src['lon']<=conv_lon(OPTIONS['domain'][1]))
-                    & (ds_src['lat']>=OPTIONS['domain'][2])
-                    & (ds_src['lat']<=OPTIONS['domain'][3]),
-                    drop=True)
+    ds_src = ds_src.where(
+        (ds_src["lon"] >= conv_lon(OPTIONS["domain"][0]))
+        & (ds_src["lon"] <= conv_lon(OPTIONS["domain"][1]))
+        & (ds_src["lat"] >= OPTIONS["domain"][2])
+        & (ds_src["lat"] <= OPTIONS["domain"][3]),
+        drop=True,
+    )
 
     # Interp on the input grid:
-    if ds['lat'].dims == ('sampling',):  #todo this is clearly not safe proof to any kind of inputs and need precise doc
-        field = ds_src.interp(lat=ds['lat'],
-                              lon=conv_lon(ds['lon']),
-                              method = 'linear')['analysed_sst'].astype(np.float32).values
+    if ds["lat"].dims == (
+        "sampling",
+    ):  # todo this is clearly not safe proof to any kind of inputs and need precise doc
+        field = (
+            ds_src.interp(lat=ds["lat"], lon=conv_lon(ds["lon"]), method="linear")[
+                "analysed_sst"
+            ]
+            .astype(np.float32)
+            .values
+        )
         ds = ds.assign(variables={"SST": (("sampling"), field)})
     else:
-        field = ds_src.interp(lat=ds['lat'],
-                         lon=conv_lon(ds['lon']),
-                         method = 'linear')['analysed_sst'].astype(np.float32).squeeze().values.T
+        field = (
+            ds_src.interp(lat=ds["lat"], lon=conv_lon(ds["lon"]), method="linear")[
+                "analysed_sst"
+            ]
+            .astype(np.float32)
+            .squeeze()
+            .values.T
+        )
         # Try to handle reshaping
         if len(field.shape) == 0:
             field = field[np.newaxis, np.newaxis]
@@ -220,15 +267,15 @@ def add_SSTclim(ds: xr.Dataset, path=None) -> xr.Dataset:
         except Exception:
             ds = ds.assign(variables={"SST": (("lon", "lat"), field.T)})
 
-    ds['SST'].attrs = attrs
-    ds['SST'] = ds['SST']-273.15
-    ds['SST'].attrs['units'] = 'degC'
-    ds['SST'].attrs['valid_min'] = -2
-    ds['SST'].attrs['valid_max'] = 40
+    ds["SST"].attrs = attrs
+    ds["SST"] = ds["SST"] - 273.15
+    ds["SST"].attrs["units"] = "degC"
+    ds["SST"].attrs["valid_min"] = -2
+    ds["SST"].attrs["valid_max"] = 40
     return ds
 
 
-def add_SLAclim(ds: xr.Dataset, path=None) -> xr.Dataset:
+def add_SLAclim(ds: xr.Dataset, path=None) -> xr.Dataset:  # noqa C901
     """ Add AVISO SLA climatology, and related fields, to dataset
 
     This function is used by the facade to complement an input dataset with missing variables like SST
@@ -253,40 +300,63 @@ def add_SLAclim(ds: xr.Dataset, path=None) -> xr.Dataset:
         Dataset with new interpolated SST climatology variable
     """
     if path is None:
-        path = os.path.join(path2assets, OPTIONS['sla_clim'])
+        path = os.path.join(path2assets, OPTIONS["sla_clim"])
     ds_src = xr.open_dataset(path)
 
     # Preserve attributes for the output:
-    attrs = ds_src['sla'].attrs
-    for k in ['Conventions', 'title', 'summary', 'institution', 'references', 'product_version']:
+    attrs = ds_src["sla"].attrs
+    for k in [
+        "Conventions",
+        "title",
+        "summary",
+        "institution",
+        "references",
+        "product_version",
+    ]:
         attrs[k] = ds_src.attrs[k]
 
     # Squeeze domain
-    ds_src = ds_src.where((ds_src['longitude']>=conv_lon(OPTIONS['domain'][0]))
-                    & (ds_src['longitude']<=conv_lon(OPTIONS['domain'][1]))
-                    & (ds_src['latitude']>=OPTIONS['domain'][2])
-                    & (ds_src['latitude']<=OPTIONS['domain'][3]),
-                    drop=True)
+    ds_src = ds_src.where(
+        (ds_src["longitude"] >= conv_lon(OPTIONS["domain"][0]))
+        & (ds_src["longitude"] <= conv_lon(OPTIONS["domain"][1]))
+        & (ds_src["latitude"] >= OPTIONS["domain"][2])
+        & (ds_src["latitude"] <= OPTIONS["domain"][3]),
+        drop=True,
+    )
 
     # Interp all variables:
-    if ds['lat'].dims == ('sampling',):  #todo this is clearly not safe proof to any kind of inputs and need precise doc
-        def interp_this(ds, x, vname='sla'):
-            x = x.interp(latitude=ds['lat'],
-                         longitude=conv_lon(ds['lon']),
-                         method = 'linear')[vname].astype(np.float32).values
+    if ds["lat"].dims == (
+        "sampling",
+    ):  # todo this is clearly not safe proof to any kind of inputs and need precise doc
+
+        def interp_this(ds, x, vname="sla"):
+            x = (
+                x.interp(
+                    latitude=ds["lat"], longitude=conv_lon(ds["lon"]), method="linear"
+                )[vname]
+                .astype(np.float32)
+                .values
+            )
             return x
-        for v in ['sla', 'ugosa', 'vgosa', 'ugos', 'vgos']:
+
+        for v in ["sla", "ugosa", "vgosa", "ugos", "vgos"]:
             val = interp_this(ds, ds_src, vname=v)
             ds = ds.assign(variables={v.upper(): (("sampling"), val)})
             ds[v.upper()].attrs = attrs
     else:
-        def interp_this(ds, x, vname='sla'):
-            x = x.interp(latitude=ds['lat'],
-                         longitude=conv_lon(ds['lon']),
-                         method = 'linear')[vname].astype(np.float32).squeeze().values.T
+
+        def interp_this(ds, x, vname="sla"):
+            x = (
+                x.interp(
+                    latitude=ds["lat"], longitude=conv_lon(ds["lon"]), method="linear"
+                )[vname]
+                .astype(np.float32)
+                .squeeze()
+                .values.T
+            )
             return x
 
-        for v in ['sla', 'ugosa', 'vgosa', 'ugos', 'vgos']:
+        for v in ["sla", "ugosa", "vgosa", "ugos", "vgos"]:
             val = interp_this(ds, ds_src, vname=v)
             if len(val.shape) == 0:
                 val = val[np.newaxis, np.newaxis]
@@ -302,12 +372,12 @@ def add_SLAclim(ds: xr.Dataset, path=None) -> xr.Dataset:
     return ds
 
 
-def check_and_complement(ds: xr.Dataset) -> xr.Dataset:
+def check_and_complement(ds: xr.Dataset) -> xr.Dataset:  # noqa C901
     """ Check input dataset and possibly add missing variables
 
     This function is used by the facade when asked to make a prediction
 
-    Here we check of the input :class:`xarray.DataSet` has the required variables to make a prediction:
+    Here we check if the input :class:`xarray.DataSet` has the required variables to make a prediction:
         1. ``lat``
         1. ``lon``
         1. ``time`` or ``dayOfYear``
@@ -337,53 +407,68 @@ def check_and_complement(ds: xr.Dataset) -> xr.Dataset:
         try:
             ds = add_BATHY(ds)
             log.debug("Added new variable '%s' to dataset" % "BATHY")
-            added.append('BATHY')
+            added.append("BATHY")
         except Exception:
-            raise ValueError("BATHY is missing from input and cannot be added automatically")
+            raise ValueError(
+                "BATHY is missing from input and cannot be added automatically"
+            )
 
     if "MDT" not in ds.data_vars:
         try:
             ds = add_MDT(ds)
             log.debug("Added new variable '%s' to dataset" % "MDT")
-            added.append('MDT')
+            added.append("MDT")
         except Exception:
-            raise ValueError("MDT is missing from input and cannot be added automatically")
+            raise ValueError(
+                "MDT is missing from input and cannot be added automatically"
+            )
 
     if "SST" not in ds.data_vars:
         try:
             ds = add_SSTclim(ds)
             log.debug("Added new variable '%s' climatology to dataset" % "SST")
-            added.append('SST')
+            added.append("SST")
         except Exception:
-            raise ValueError("SST is missing from input and cannot be added automatically")
+            raise ValueError(
+                "SST is missing from input and cannot be added automatically"
+            )
 
     if "SLA" not in ds.data_vars:
         try:
             ds = add_SLAclim(ds)
-            log.debug("Added new variable '%s' climatology to dataset" % "SLA, UGOSA, VGOSA, UGOS, VGOS")
-            [added.append(v) for v in ['SLA', 'UGOSA', 'VGOSA', 'UGOS', 'VGOS']]
+            log.debug(
+                "Added new variable '%s' climatology to dataset"
+                % "SLA, UGOSA, VGOSA, UGOS, VGOS"
+            )
+            [added.append(v) for v in ["SLA", "UGOSA", "VGOSA", "UGOS", "VGOS"]]
         except Exception:
-            raise ValueError("SLA is missing from input and cannot be added automatically")
+            raise ValueError(
+                "SLA is missing from input and cannot be added automatically"
+            )
 
     if "dayOfYear" not in ds.data_vars:
         if "time" not in ds:
-            raise ValueError("Input dataset must have a 'time' coordinate/dimension or variable")
+            raise ValueError(
+                "Input dataset must have a 'time' coordinate/dimension or variable"
+            )
         try:
-            ds = ds.assign(variables={"dayOfYear": ds['time.dayofyear']})
+            ds = ds.assign(variables={"dayOfYear": ds["time.dayofyear"]})
             log.debug("Added new variable '%s' to dataset" % "dayOfYear")
-            added.append('dayOfYear')
+            added.append("dayOfYear")
         except Exception:
-            raise ValueError("dayOfYear is missing from input and cannot be added automatically")
+            raise ValueError(
+                "dayOfYear is missing from input and cannot be added automatically"
+            )
 
     if len(added) > 0:
-        ds.attrs['OSnet-added'] = ";".join(added)
-        # This will be used by the facade to possible delete these variables from the output dataset
+        ds.attrs["OSnet-added"] = ";".join(added)
+        # This will be used by the facade to possibly delete these variables from the output dataset
 
     return ds
 
 
 def get_sys_info():
-    "Returns system information as a dict"
+    """ Returns system information as a dict """
 
     blob = []
 
@@ -473,19 +558,16 @@ def show_versions(file=sys.stdout):  # noqa: C901
         ("joblib", lambda mod: mod.__version__),
         ("numba", lambda mod: mod.__version__),
         ("dask", lambda mod: mod.__version__),
-
         ("numpy", lambda mod: mod.__version__),
         ("scipy", lambda mod: mod.__version__),
         ("pandas", lambda mod: mod.__version__),
         ("xarray", lambda mod: mod.__version__),
         ("sklearn", lambda mod: mod.__version__),
-
         ("matplotlib", lambda mod: mod.__version__),
         ("gsw", lambda mod: mod.__version__),
         ("seaborn", lambda mod: mod.__version__),
         ("IPython", lambda mod: mod.__version__),
         ("netCDF4", lambda mod: mod.__version__),
-
         ("packaging", lambda mod: mod.__version__),
         ("pip", lambda mod: mod.__version__),
     ]
@@ -518,46 +600,70 @@ def show_versions(file=sys.stdout):  # noqa: C901
 
 
 def disclaimer(obj="notebook"):
-    """ Insert our disclaimer banner """
+    """ Insert our EARISE disclaimer banner """
     from IPython.core.display import HTML, display
 
-    insert_img = lambda url: "<img src='%s' style='height:75px'>" % url
-    insert_link = lambda url, txt: "<a href='%s'>%s</a>" % (url, txt)
+    insert_img = lambda url: "<img src='%s' style='height:75px'>" % url  # noqa E731
+    insert_link = lambda url, txt: "<a href='%s'>%s</a>" % (url, txt)  # noqa E731
 
-    html = "<p>This %s has been developed at the Laboratory for Ocean Physics and Satellite remote sensing, Ifremer, \
+    html = (
+        "<p>This %s has been developed at the Laboratory for Ocean Physics and Satellite remote sensing, Ifremer, \
     within the framework of the Euro-ArgoRISE project. <br>This project has received funding from the European \
     Union’s Horizon 2020 research and innovation programme under grant agreement no 824131. Call INFRADEV-03-2018-2019: \
-    Individual support to ESFRI and other world-class research infrastructures.</p>" % obj
+    Individual support to ESFRI and other world-class research infrastructures.</p>"
+        % obj
+    )
 
-    l1 = insert_link("https://www.euro-argo.eu/EU-Projects/Euro-Argo-RISE-2019-2022",
-                     insert_img(
-                         "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/input_trajectory/docs/_static/logo_earise.png?token=GHSAT0AAAAAABQFXZESQOABJYKRM5KODBWWYRCB4BQ"))
+    l1 = insert_link(
+        "https://www.euro-argo.eu/EU-Projects/Euro-Argo-RISE-2019-2022",
+        insert_img(
+            "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/input_trajectory/docs/_static/"
+            "logo_earise.png?token=GHSAT0AAAAAABQFXZESQOABJYKRM5KODBWWYRCB4BQ"
+        ),
+    )
 
-    l2 = insert_link("https://www.umr-lops.fr",
-                     insert_img(
-                         "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/input_trajectory/docs/_static/logo_lops.jpg?token=GHSAT0AAAAAABQFXZET7WPE545OZTBNDMEQYRCB4JQ"))
+    l2 = insert_link(
+        "https://www.umr-lops.fr",
+        insert_img(
+            "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/input_trajectory/docs/_static/"
+            "logo_lops.jpg?token=GHSAT0AAAAAABQFXZET7WPE545OZTBNDMEQYRCB4JQ"
+        ),
+    )
 
-    l3 = insert_link("https://wwz.ifremer.fr",
-                     insert_img(
-                         "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/input_trajectory/docs/_static/logo_ifremer.jpg?token=GHSAT0AAAAAABQFXZESH5XSCWHO4ZLLDUAAYRCB4PQ"))
+    l3 = insert_link(
+        "https://wwz.ifremer.fr",
+        insert_img(
+            "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/input_trajectory/docs/_static/"
+            "logo_ifremer.jpg?token=GHSAT0AAAAAABQFXZESH5XSCWHO4ZLLDUAAYRCB4PQ"
+        ),
+    )
 
     display(HTML("<hr>" + html + l1 + l2 + l3 + "<hr>"))
 
 
-class SLA_fetcher():
+class SLA_fetcher:
     import socket
-    file_formatter = lambda self, year: os.path.join(self.path, "SLA_Gulf_Stream_%4d.nc" % year)
 
-    def __init__(self,
-                 root: str = None,
-                 path: str = 'osnet/data_remote_sensing/SLA/SLA_Gulf_Stream/'):
+    file_formatter = lambda self, year: os.path.join(  # noqa E731
+        self.path, "SLA_Gulf_Stream_%4d.nc" % year
+    )
+
+    def __init__(
+        self,
+        root: str = None,
+        path: str = "osnet/data_remote_sensing/SLA/SLA_Gulf_Stream/",
+    ):
         if not root:
             # Default on Datarmor:
-            self.root = '/home/datawork-lops-bluecloud'
+            self.root = "/home/datawork-lops-bluecloud"
 
             # Guillaume:
-            if self.socket.gethostname() == 'br146-123.ifremer.fr':
-                self.root = '/Users/gmaze/data/BLUECLOUD' if os.path.exists('/Users/gmaze/data/BLUECLOUD/') else '/Users/gmaze/data/BLUECLOUD_local'
+            if self.socket.gethostname() == "br146-123.ifremer.fr":
+                self.root = (
+                    "/Users/gmaze/data/BLUECLOUD"
+                    if os.path.exists("/Users/gmaze/data/BLUECLOUD/")
+                    else "/Users/gmaze/data/BLUECLOUD_local"
+                )
 
             # Insert new rules here based on your machine IP !
 
@@ -567,14 +673,16 @@ class SLA_fetcher():
         # print(self.path)
 
     def _conv_ts(self, this_t):
-        return pd.to_datetime(this_t) if not isinstance(this_t, pd.Timestamp) else this_t
+        return (
+            pd.to_datetime(this_t) if not isinstance(this_t, pd.Timestamp) else this_t
+        )
 
     def _timestamp2absfile(self, this_t):
         return self.file_formatter(self._conv_ts(this_t).year)
 
     def preprocess(self, this_ds):
         """ Preprocessing """
-        this_ds['longitude'] = conv_lon(this_ds['longitude'])
+        this_ds["longitude"] = conv_lon(this_ds["longitude"])
         return this_ds
 
     def load(self, ts):
@@ -582,28 +690,35 @@ class SLA_fetcher():
         fil = self._timestamp2absfile(ts)
         this_ds = xr.open_dataset(fil)
         this_ds = self.preprocess(this_ds)
-        this_ds = this_ds.sel(time=self._conv_ts(ts), method='nearest')
+        this_ds = this_ds.sel(time=self._conv_ts(ts), method="nearest")
         return this_ds
 
 
-class SST_fetcher():
+class SST_fetcher:
     import socket
-    file_formatter = lambda self, year, month: os.path.join(self.path, "SST_Gulf_Stream_%0.4d_%0.2d.nc" % (year, month))
 
-    def __init__(self,
-                 root: str = None,
-                 path: str = 'osnet/data_remote_sensing/SST/SST_Gulf_Stream/'):
+    file_formatter = lambda self, year, month: os.path.join(  # noqa E731
+        self.path, "SST_Gulf_Stream_%0.4d_%0.2d.nc" % (year, month)
+    )
+
+    def __init__(
+        self,
+        root: str = None,
+        path: str = "osnet/data_remote_sensing/SST/SST_Gulf_Stream/",
+    ):
         if not root:
-            self.root = '/home/datawork-lops-bluecloud'  # Default on Datarmor
-            if self.socket.gethostname() == 'br146-123.ifremer.fr':
-                self.root = '/Users/gmaze/data/BLUECLOUD_local'  # Guillaume
+            self.root = "/home/datawork-lops-bluecloud"  # Default on Datarmor
+            if self.socket.gethostname() == "br146-123.ifremer.fr":
+                self.root = "/Users/gmaze/data/BLUECLOUD_local"  # Guillaume
         else:
             self.root = root
         self.path = os.path.join(self.root, path)
         # print(self.path)
 
     def _conv_ts(self, this_t):
-        return pd.to_datetime(this_t) if not isinstance(this_t, pd.Timestamp) else this_t
+        return (
+            pd.to_datetime(this_t) if not isinstance(this_t, pd.Timestamp) else this_t
+        )
 
     def _timestamp2absfile(self, this_t):
         ts = self._conv_ts(this_t)
@@ -611,14 +726,14 @@ class SST_fetcher():
 
     def preprocess(self, this_ds):
         """ Preprocessing """
-        this_ds['lon'] = conv_lon(this_ds['lon'])
-        for v in ['analysed_sst', 'analysis_uncertainty']:
+        this_ds["lon"] = conv_lon(this_ds["lon"])
+        for v in ["analysed_sst", "analysis_uncertainty"]:
             attrs = this_ds[v].attrs
             this_ds[v] = this_ds[v] - 273.15
             this_ds[v].attrs = attrs
-            this_ds[v].attrs['units'] = 'degC'
-        this_ds['analysed_sst'].attrs['valid_min'] = -2
-        this_ds['analysis_uncertainty'].attrs['valid_max'] = 40
+            this_ds[v].attrs["units"] = "degC"
+        this_ds["analysed_sst"].attrs["valid_min"] = -2
+        this_ds["analysis_uncertainty"].attrs["valid_max"] = 40
         return this_ds
 
     def load(self, ts):
@@ -626,5 +741,5 @@ class SST_fetcher():
         fil = self._timestamp2absfile(ts)
         this_ds = xr.open_dataset(fil)
         this_ds = self.preprocess(this_ds)
-        this_ds = this_ds.sel(time=self._conv_ts(ts), method='nearest')
+        this_ds = this_ds.sel(time=self._conv_ts(ts), method="nearest")
         return this_ds
