@@ -19,7 +19,7 @@ setuptools.setup(
     url="https://github.com/euroargodev/OSnet-GulfStream",
     packages=setuptools.find_packages(),
     package_dir={'osnet': 'osnet'},
-    package_data={'osnet': ['assets/*.nc']},
+    package_data={'osnet': ['assets/*.nc', 'models/*/*.joblib', 'models/*/neuralnet/ensemble/model*/*.pb', 'models/*/neuralnet/ensemble/model*/variables/*']},
     install_requires=requirements,
     classifiers=[
         "Programming Language :: Python :: 3.7",
