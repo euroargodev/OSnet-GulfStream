@@ -10,6 +10,7 @@ import locale
 import platform
 import struct
 import subprocess
+import pandas as pd
 
 log = logging.getLogger("osnet.utilities")
 
@@ -63,11 +64,12 @@ def add_MDT(ds: xr.Dataset, path=None) -> xr.Dataset:
         attrs[k] = mdt.attrs[k]
 
     # Squeeze domain
-    mdt = mdt.where((mdt['longitude']>=conv_lon(OPTIONS['domain'][0]))
-                    & (mdt['longitude']<=conv_lon(OPTIONS['domain'][1]))
-                    & (mdt['latitude']>=OPTIONS['domain'][2])
-                    & (mdt['latitude']<=OPTIONS['domain'][3]),
-                    drop=True)
+    if not OPTIONS['unbound']:
+        mdt = mdt.where((mdt['longitude']>=conv_lon(OPTIONS['domain'][0]))
+                        & (mdt['longitude']<=conv_lon(OPTIONS['domain'][1]))
+                        & (mdt['latitude']>=OPTIONS['domain'][2])
+                        & (mdt['latitude']<=OPTIONS['domain'][3]),
+                        drop=True)
     # Interp on the input grid:
     if ds['lat'].dims == ('sampling',):  #todo this is clearly not safe proof to any kind of inputs and need precise doc
         mdt = mdt.interp(latitude=ds['lat'],
@@ -124,12 +126,12 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
     attrs['standard_name'] = 'sea_floor_depth_below_sea_surface'
 
     # Squeeze domain:
-    # log.debug('Working bathymetry with domain: %s' % OPTIONS['domain'])
-    bathy = bathy.where((bathy['longitude']>=conv_lon(OPTIONS['domain'][0]))
-                    & (bathy['longitude']<=conv_lon(OPTIONS['domain'][1]))
-                    & (bathy['latitude']>=OPTIONS['domain'][2])
-                    & (bathy['latitude']<=OPTIONS['domain'][3]),
-                    drop=True)
+    if not OPTIONS['unbound']:
+        bathy = bathy.where((bathy['longitude']>=conv_lon(OPTIONS['domain'][0]))
+                        & (bathy['longitude']<=conv_lon(OPTIONS['domain'][1]))
+                        & (bathy['latitude']>=OPTIONS['domain'][2])
+                        & (bathy['latitude']<=OPTIONS['domain'][3]),
+                        drop=True)
     # Interp
     if ds['lat'].dims == ('sampling',):  #todo this is clearly not safe proof to any kind of inputs and need precise doc
         # log.debug("Input with 'sampling' dimension")
@@ -540,3 +542,89 @@ def disclaimer(obj="notebook"):
                          "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/input_trajectory/docs/_static/logo_ifremer.jpg?token=GHSAT0AAAAAABQFXZESH5XSCWHO4ZLLDUAAYRCB4PQ"))
 
     display(HTML("<hr>" + html + l1 + l2 + l3 + "<hr>"))
+
+
+class SLA_fetcher():
+    import socket
+    file_formatter = lambda self, year: os.path.join(self.path, "SLA_Gulf_Stream_%4d.nc" % year)
+
+    def __init__(self,
+                 root: str = None,
+                 path: str = 'osnet/data_remote_sensing/SLA/SLA_Gulf_Stream/'):
+        if not root:
+            # Default on Datarmor:
+            self.root = '/home/datawork-lops-bluecloud'
+
+            # Guillaume:
+            if self.socket.gethostname() == 'br146-123.ifremer.fr':
+                self.root = '/Users/gmaze/data/BLUECLOUD' if os.path.exists('/Users/gmaze/data/BLUECLOUD/') else '/Users/gmaze/data/BLUECLOUD_local'
+
+            # Insert new rules here based on your machine IP !
+
+        else:
+            self.root = root
+        self.path = os.path.join(self.root, path)
+        # print(self.path)
+
+    def _conv_ts(self, this_t):
+        return pd.to_datetime(this_t) if not isinstance(this_t, pd.Timestamp) else this_t
+
+    def _timestamp2absfile(self, this_t):
+        return self.file_formatter(self._conv_ts(this_t).year)
+
+    def preprocess(self, this_ds):
+        """ Preprocessing """
+        this_ds['longitude'] = conv_lon(this_ds['longitude'])
+        return this_ds
+
+    def load(self, ts):
+        """ Load SLA for one snapshot """
+        fil = self._timestamp2absfile(ts)
+        this_ds = xr.open_dataset(fil)
+        this_ds = self.preprocess(this_ds)
+        this_ds = this_ds.sel(time=self._conv_ts(ts), method='nearest')
+        return this_ds
+
+
+class SST_fetcher():
+    import socket
+    file_formatter = lambda self, year, month: os.path.join(self.path, "SST_Gulf_Stream_%0.4d_%0.2d.nc" % (year, month))
+
+    def __init__(self,
+                 root: str = None,
+                 path: str = 'osnet/data_remote_sensing/SST/SST_Gulf_Stream/'):
+        if not root:
+            self.root = '/home/datawork-lops-bluecloud'  # Default on Datarmor
+            if self.socket.gethostname() == 'br146-123.ifremer.fr':
+                self.root = '/Users/gmaze/data/BLUECLOUD_local'  # Guillaume
+        else:
+            self.root = root
+        self.path = os.path.join(self.root, path)
+        # print(self.path)
+
+    def _conv_ts(self, this_t):
+        return pd.to_datetime(this_t) if not isinstance(this_t, pd.Timestamp) else this_t
+
+    def _timestamp2absfile(self, this_t):
+        ts = self._conv_ts(this_t)
+        return self.file_formatter(ts.year, ts.month)
+
+    def preprocess(self, this_ds):
+        """ Preprocessing """
+        this_ds['lon'] = conv_lon(this_ds['lon'])
+        for v in ['analysed_sst', 'analysis_uncertainty']:
+            attrs = this_ds[v].attrs
+            this_ds[v] = this_ds[v] - 273.15
+            this_ds[v].attrs = attrs
+            this_ds[v].attrs['units'] = 'degC'
+        this_ds['analysed_sst'].attrs['valid_min'] = -2
+        this_ds['analysis_uncertainty'].attrs['valid_max'] = 40
+        return this_ds
+
+    def load(self, ts):
+        """ Load SST for one snapshot """
+        fil = self._timestamp2absfile(ts)
+        this_ds = xr.open_dataset(fil)
+        this_ds = self.preprocess(this_ds)
+        this_ds = this_ds.sel(time=self._conv_ts(ts), method='nearest')
+        return this_ds
