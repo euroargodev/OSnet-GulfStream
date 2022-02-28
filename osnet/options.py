@@ -9,6 +9,8 @@ log = logging.getLogger("osnet.options")
 # Define option names as seen by users:
 MDT_FILE = "mdt"
 BATHY_FILE = "bathymetry"
+SSTclim_FILE = "sst_clim"
+SLAclim_FILE = "sla_clim"
 VALID_DOMAIN = "domain"
 UNBOUND = "unbound"
 
@@ -16,7 +18,9 @@ UNBOUND = "unbound"
 OPTIONS = {
     MDT_FILE: "mdt-cnes-cls18-GulfStream.nc",  # File name to be found under the 'assets' folder
     BATHY_FILE: "bathymetry-GulfStream.nc",  # File name to be found under the 'assets' folder
-    VALID_DOMAIN: [-85, -25, 18, 55],  # Validity bounds of model predictions: [lon_min, lan_max, lat_min, lat_max], [-80, -30, 23, 50]
+    SSTclim_FILE: "SST_Gulf_Stream_Climato.nc",  # File name to be found under the 'assets' folder
+    SLAclim_FILE: "SLA_Gulf_Stream_Climato.nc",  # File name to be found under the 'assets' folder
+    VALID_DOMAIN: [-80, -30, 23, 50],  # Validity bounds of model predictions: [lon_min, lan_max, lat_min, lat_max]
     UNBOUND: False,  # Allow for the model to make predictions out of the valid domain bounds
 }
 
@@ -24,6 +28,8 @@ OPTIONS = {
 _VALIDATORS = {
     MDT_FILE: os.path.exists,
     BATHY_FILE: os.path.exists,
+    SSTclim_FILE: os.path.exists,
+    SLAclim_FILE: os.path.exists,
     VALID_DOMAIN: lambda L: np.all([(isinstance(b, int) or isinstance(b, (np.floating, float))) for b in L]),
     UNBOUND: lambda x: isinstance(x, bool)
 }

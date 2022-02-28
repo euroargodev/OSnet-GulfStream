@@ -13,6 +13,7 @@ import pkg_resources
 import logging
 
 from .utilities import check_and_complement, conv_lon
+from .options import OPTIONS
 
 
 log = logging.getLogger("osnet.facade")
@@ -151,14 +152,45 @@ class predictor_proto(ABC):
         mask = xr.concat(M, dim='n_features')
         mask = mask.sum(dim='n_features')
         mask = mask == len(Features)
+        mask = mask.rename('mask')
+
+        # Also ensure we're not extrapolating out of the valid (training) domain:
+        if not OPTIONS['unbound']:
+            filt = []
+            filt.append(mask.data)
+            filt.append(conv_lon(x['lon']) >= conv_lon(OPTIONS['domain'][0]))
+            filt.append(conv_lon(x['lon']) <= conv_lon(OPTIONS['domain'][1]))
+            filt.append(x['lat'] >= OPTIONS['domain'][2])
+            filt.append(x['lat'] <= OPTIONS['domain'][3])
+            mask.data = np.logical_and.reduce(filt)
+
         return mask
+
+    def ravel(self, x: xr.Dataset) -> xr.Dataset:
+        """ Convert an input dataset of any shape to a dataset with (sample,) arrays
+
+            Preserve mask internally to later unravel
+        """
+        if 'sampling' not in x.dims:
+            self._stacking = True
+            x = x.stack({'sampling': list(x.dims)})
+        else:
+            self._stacking = False
+
+        mask = self._mask_X(x)
+        self._xmask = xr.DataArray(mask, dims='sampling')
+        x = x.where(self._xmask, drop=True)
+        return x
+
+    def unravel(self, y: xr.Dataset) -> xr.Dataset:
+        """ Convert a working dataset with (sample,) arrays back to input dataset dimensions """
+        a, b = xr.align(self._xmask, y, join='outer')
+        return b.unstack('sampling') if self._stacking else b
 
     def _make_X(self, x):
         """ create X vector """
-        # Stack and mask in the input array:
-        x = x.stack({'sampling': list(x.dims)})
-        self._mask = self._mask_X(x)
-        x = x.where(self._mask == 1, drop=True)
+        # Stack and mask the input array:
+        x = self.ravel(x)
 
         # Create [Samples, Features] array to work with:
         N_samples = len(x['sampling'])
@@ -256,13 +288,16 @@ class predictor_proto(ABC):
     def _predict(self, x: xr.Dataset, ensemble: list, scalers: dict, scale=True, **kwargs) -> xr.Dataset:
         """ Make prediction """
         X, y = self._make_X(x)  # y is stacked/masked x
+        if X.shape[0] == 0:
+            raise ValueError("No data found in input dataset suitable for OSnet predictions. "
+                             "Try to set option `unbound` to True (currently set to %s) "
+                             "or update the domain definition (currently set to %s)" % (OPTIONS['unbound'], OPTIONS['domain']))
         X_scaled = scalers['scaler_input'].transform(X)
 
         # Prediction:
         predictions = self._get_mean_std_pred(ensemble, X_scaled, scalers, scale=scale)
 
         # Add predicted variables to dataset:
-        #TODO: Add CF attributes for each of these variables
         vlist = ['PRES_INTERPOLATED', 'temp', 'temp_std', 'psal', 'psal_std']
         y = y.assign(variables={"PRES_INTERPOLATED": (("PRES_INTERPOLATED"), self.SDL)})
         y = y.assign(variables={"temp": (("sampling", "PRES_INTERPOLATED"), predictions['Tm'])})
@@ -277,7 +312,7 @@ class predictor_proto(ABC):
         # Adjust Mixed layer:
         if ('adjust_mld' in kwargs and kwargs['adjust_mld']) or self.adjust_mld:
             y = y.assign(variables={"MLD_mask": (("sampling", "PRES_INTERPOLATED"), predictions['Km'].data)})
-            y = self._add_sig(y)  # This variable could be added to output even without MLD adjustment
+            y = self._add_sig(y)  #todo Should this variable added to output even without MLD adjustment ?
             y = self._add_maskv3(y)
             y = self._post_processing_adjustment(y, mask=y['MLD_mask3'])
             y = y.drop_vars(['MLD_mask', 'MLD_mask2', 'MLD_mask3'])
@@ -288,18 +323,9 @@ class predictor_proto(ABC):
         for v in vlist:
             y[v] = self._sign_predictions(y[v])
 
-        # # Prepare output according to input mask
-        # x = x.stack({'sampling': list(x.dims)})
-        # for v in list(set(y.data_vars) - set(x.data_vars)):
-        #     x = x.assign({v: y[v]})
-        # x = x.unstack('sampling')
-        #
-        # if (np.prod(x['SST'].shape) != self._xmask.shape[0]):
-        #     log.debug("Unravelled data not matching mask dimension, re-indexing")
-        #     mask = self._xmask.unstack()
-        #     x['SST'] = x['SST'].reindex_like(mask)
-
-        return y.unstack('sampling')
+        y = self.unravel(y)
+        y.attrs['OSnet-Nsample'] = X.shape[0]
+        return y
 
 
 class predictor(predictor_proto):
@@ -383,11 +409,14 @@ class predictor(predictor_proto):
                 self.adjust_mld = kwargs['adjust_mld']
 
         y = self._predict(x=x, ensemble=self.models, scalers=self.scalers, **kwargs)
+        # log.debug(y.attrs)
 
         # ds_output has ds_inputs variables dimensions broadcasted, so we need to re-assign to their original shape:
-        for v in x.data_vars:
-            if v in y:
-                y = y.assign({v: x[v]})
+        if self._stacking:
+            for v in x.data_vars:
+                if v in y:
+                    y = y.assign({v: x[v]})
+        # log.debug(y.attrs)
 
         # Return dataset:
         if inplace:
@@ -396,7 +425,9 @@ class predictor(predictor_proto):
             # log.debug(list(set(y.data_vars) - set(x.data_vars)))
             for v in list(set(y.data_vars) - set(x.data_vars)):
                 x = x.assign({v: y[v]})
+                x[v].attrs = y[v].attrs
             out = x
+            out.attrs = y.attrs
         else:
             # Remove input arrays from the predicted dataset:
             # log.debug("NOT INPLACE: Remove input arrays from the predicted dataset:")
@@ -405,6 +436,7 @@ class predictor(predictor_proto):
             y.attrs['featureType'] = 'profile'
             y.attrs['Conventions'] = 'CF-1.8'
             out = y
+        # log.debug(out.attrs)
 
         # Possibly remove data we had to add to the input:
         if 'OSnet-added' in out.attrs and not keep_added:
@@ -412,6 +444,7 @@ class predictor(predictor_proto):
             # log.debug(out.attrs)
             out = out.drop_vars(out.attrs['OSnet-added'].split(";"), errors='ignore')
             out.attrs.pop('OSnet-added')
+        # log.debug(out.attrs)
 
         # Restore model set-up temporarily overwritten with local options:
         self.adjust_mld = adjust_mld_init
