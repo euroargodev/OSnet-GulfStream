@@ -601,7 +601,7 @@ def show_versions(file=sys.stdout):  # noqa: C901
 
 def disclaimer(obj="notebook"):
     """ Insert our EARISE disclaimer banner """
-    from IPython.core.display import HTML, display
+    from IPython.display import HTML, display
 
     insert_img = lambda url: "<img src='%s' style='height:75px'>" % url  # noqa E731
     insert_link = lambda url, txt: "<a href='%s'>%s</a>" % (url, txt)  # noqa E731
@@ -617,7 +617,7 @@ def disclaimer(obj="notebook"):
     l1 = insert_link(
         "https://www.euro-argo.eu/EU-Projects/Euro-Argo-RISE-2019-2022",
         insert_img(
-            "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/input_trajectory/docs/_static/"
+            "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/main/docs/_static/"
             "logo_earise.png?token=GHSAT0AAAAAABQFXZESQOABJYKRM5KODBWWYRCB4BQ"
         ),
     )
@@ -625,7 +625,7 @@ def disclaimer(obj="notebook"):
     l2 = insert_link(
         "https://www.umr-lops.fr",
         insert_img(
-            "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/input_trajectory/docs/_static/"
+            "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/main/docs/_static/"
             "logo_lops.jpg?token=GHSAT0AAAAAABQFXZET7WPE545OZTBNDMEQYRCB4JQ"
         ),
     )
@@ -633,7 +633,7 @@ def disclaimer(obj="notebook"):
     l3 = insert_link(
         "https://wwz.ifremer.fr",
         insert_img(
-            "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/input_trajectory/docs/_static/"
+            "https://raw.githubusercontent.com/euroargodev/OSnet-GulfStream/main/docs/_static/"
             "logo_ifremer.jpg?token=GHSAT0AAAAAABQFXZESH5XSCWHO4ZLLDUAAYRCB4PQ"
         ),
     )
