@@ -28,7 +28,7 @@ python -m ipykernel install --user --name=OSnet
 
 # Usage
 
-[![badge](https://img.shields.io/static/v1.svg?logo=Jupyter&label=Binder&message=Click+here+to+try+osnet+online+!&color=blue&style=for-the-badge)](https://mybinder.org/v2/gh/euroargodev/binder-sandbox/pangeo-ml?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252Feuroargodev%252FOSnet-GulfStream%26urlpath%3Dlab%252Ftree%252FOSnet-GulfStream%252Fdocs%252Fdemo-predictions.ipynb%26branch%3Dbinder)
+[![Binder](https://img.shields.io/static/v1.svg?logo=Jupyter&label=Binder&message=Click+here+to+try+osnet+online+!&color=blue)](https://mybinder.org/v2/gh/euroargodev/binder-sandbox/pangeo-ml?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252Feuroargodev%252FOSnet-GulfStream%26urlpath%3Dlab%252Ftree%252FOSnet-GulfStream%252Fdocs%252Fdemo-predictions.ipynb%26branch%3Dbinder)
 
 Import library:
 ```python
