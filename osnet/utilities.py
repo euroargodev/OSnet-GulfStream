@@ -184,6 +184,7 @@ def add_BATHY(ds: xr.Dataset, path=None) -> xr.Dataset:
     #
     # log.debug(bathy)
     ds["BATHY"].attrs = attrs
+    ds['BATHY'].attrs['units'] = 'm'
     return ds
 
 
@@ -707,9 +708,19 @@ class SST_fetcher:
         path: str = "osnet/data_remote_sensing/SST/SST_Gulf_Stream/",
     ):
         if not root:
-            self.root = "/home/datawork-lops-bluecloud"  # Default on Datarmor
+            # Default on Datarmor:
+            self.root = "/home/datawork-lops-bluecloud"
+
+            # Guillaume:
             if self.socket.gethostname() == "br146-123.ifremer.fr":
-                self.root = "/Users/gmaze/data/BLUECLOUD_local"  # Guillaume
+                self.root = (
+                    "/Users/gmaze/data/BLUECLOUD"
+                    if os.path.exists("/Users/gmaze/data/BLUECLOUD/")
+                    else "/Users/gmaze/data/BLUECLOUD_local"
+                )
+
+            # Insert new rules here based on your machine IP !
+
         else:
             self.root = root
         self.path = os.path.join(self.root, path)
