@@ -1,6 +1,6 @@
 |<img src="https://github.com/euroargodev/OSnet-GulfStream/raw/main/docs/_static/osnet_landscape.png" width="300px"/><h1>Gulf-Stream</h1>|``OSnet`` is a python library to make T/S/MLD predictions in the Gulf Stream region using Neural Network|
 |:---------:|:-------|
-|Methodology| Pauthenet et al, 2022 (insert link to paper here)<br>Method source code: https://github.com/euroargodev/OSnet|
+|Methodology| Pauthenet et al, 2022 [![](https://img.shields.io/badge/DOI-10.5194%2Fegusphere--2022--25-blue)](https://doi.org/10.5194/egusphere-2022-25)<br>Method source code: https://github.com/euroargodev/OSnet|
 |OSnet gridded dataset|[![Gridded dataset](https://zenodo.org/badge/DOI/10.5281/zenodo.6011144.svg)](https://doi.org/10.5281/zenodo.6011144)
 |OSnet software<br><i>to make your own predictions</i>|![License](https://img.shields.io/github/license/euroargodev/argopy) [![Python version](https://img.shields.io/pypi/pyversions/argopy)](//pypi.org/project/argopy/)<br>[![](https://img.shields.io/github/release-date/euroargodev/osnet)](//github.com/euroargodev/osnet/releases) [![PyPI](https://img.shields.io/pypi/v/osnet)](//pypi.org/project/osnet/) |
 
